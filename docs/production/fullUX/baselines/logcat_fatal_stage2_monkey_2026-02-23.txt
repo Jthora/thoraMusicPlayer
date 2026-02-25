@@ -1,0 +1,3 @@
+02-23 05:26:37.387 18473 18473 I AndroidRuntime: Using default boot image
+02-23 05:26:37.388 18473 18473 I AndroidRuntime: Leaving lock profiling enabled
+02-23 05:26:42.134 18473 18473 I AndroidRuntime: VM exiting with result code 0.

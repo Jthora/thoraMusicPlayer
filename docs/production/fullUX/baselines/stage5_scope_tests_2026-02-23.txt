@@ -1,0 +1,4 @@
+
+> AndroidMusicPlayerApp@0.0.1 test
+> jest --runTestsByPath __tests__/searchScopeFilters.test.ts --watch=false
+

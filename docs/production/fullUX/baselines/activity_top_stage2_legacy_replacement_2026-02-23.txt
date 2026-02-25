@@ -1,0 +1,120 @@
+TASK 10336:com.androidmusicplayerapp id=493 userId=0 displayId=0(type=INTERNAL)
+  ACTIVITY com.androidmusicplayerapp/.MainActivity 74e49e1 pid=18328 userId=0 uid=10336 displayId=0(type=INTERNAL)
+    Local Activity d3f9b76 State:
+      mResumed=false mStopped=true mFinished=false
+      mIsInMultiWindowMode=false mIsInPictureInPictureMode=false
+      mChangingConfigurations=false
+      mCurrentConfig={1.0 ?mcc0mnc [en_US] ldltr sw360dp w360dp h825dp 320dpi nrml long port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 720, 1650) mAppBounds=Rect(0, 0 - 720, 1650) mMaxBounds=Rect(0, 0 - 720, 1650) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=standard mAlwaysOnTop=undefined mRotation=ROTATION_0} s.2 fontWeightAdjustment=0}
+      mLoadersStarted=true
+      Active Fragments in cb0cf6b:
+        #0: ReportFragment{e3d1ac8 #0 androidx.lifecycle.LifecycleDispatcher.report_fragment_tag}
+          mFragmentId=#0 mContainerId=#0 mTag=androidx.lifecycle.LifecycleDispatcher.report_fragment_tag
+          mState=3 mIndex=0 mWho=android:fragment:0 mBackStackNesting=0
+          mAdded=true mRemoving=false mFromLayout=false mInLayout=false
+          mHidden=false mDetached=false mMenuVisible=true mHasMenu=false
+          mRetainInstance=false mRetaining=false mUserVisibleHint=true
+          mFragmentManager=FragmentManager{cb0cf6b in HostCallbacks{cdd8761}}
+          mHost=android.app.Activity$HostCallbacks@cdd8761
+          Child FragmentManager{f986286 in ReportFragment{e3d1ac8}}:
+            FragmentManager misc state:
+              mHost=android.app.Activity$HostCallbacks@cdd8761
+              mContainer=android.app.Fragment$1@b8af747
+              mParent=ReportFragment{e3d1ac8 #0 androidx.lifecycle.LifecycleDispatcher.report_fragment_tag}
+              mCurState=3 mStateSaved=true mDestroyed=false
+      Added Fragments:
+        #0: ReportFragment{e3d1ac8 #0 androidx.lifecycle.LifecycleDispatcher.report_fragment_tag}
+      FragmentManager misc state:
+        mHost=android.app.Activity$HostCallbacks@cdd8761
+        mContainer=android.app.Activity$HostCallbacks@cdd8761
+        mCurState=3 mStateSaved=true mDestroyed=false
+    ViewRoot:
+      mAdded=true
+      mRemoved=false
+      mStopped=true
+      mPausedForTransition=false
+      mConsumeBatchedInputScheduled=false
+      mConsumeBatchedInputImmediatelyScheduled=false
+      mPendingInputEventCount=0
+      mProcessInputEventsScheduled=false
+      mTraversalScheduled=false
+      mReportNextDraw=false
+      mLastPerformTraversalsFailedReason=view_not_visible
+      mLastReportedMergedConfiguration={mGlobalConfig={1.0 ?mcc0mnc [en_US] ldltr sw360dp w360dp h825dp 320dpi nrml long port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 720, 1650) mAppBounds=Rect(0, 0 - 720, 1650) mMaxBounds=Rect(0, 0 - 720, 1650) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_0} s.8 fontWeightAdjustment=0} mOverrideConfig={1.0 ?mcc0mnc [en_US] ldltr sw360dp w360dp h825dp 320dpi nrml long port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 720, 1650) mAppBounds=Rect(0, 0 - 720, 1650) mMaxBounds=Rect(0, 0 - 720, 1650) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=standard mAlwaysOnTop=undefined mRotation=ROTATION_0} s.2 fontWeightAdjustment=0}}
+      mLastConfigurationFromResources={1.0 ?mcc0mnc [en_US] ldltr sw360dp w360dp h825dp 320dpi nrml long port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 720, 1650) mAppBounds=Rect(0, 0 - 720, 1650) mMaxBounds=Rect(0, 0 - 720, 1650) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=standard mAlwaysOnTop=undefined mRotation=ROTATION_0} s.2 fontWeightAdjustment=0}
+      mLastReportedActivityWindowInfo=ActivityWindowInfo{isEmbedded=false, taskBounds=Rect(0, 0 - 720, 1650), taskFragmentBounds=Rect(0, 0 - 720, 1650)}
+      mIsAmbientMode=false
+      mUnbufferedInputSource=0
+      mAttachInfo=       AttachInfo:
+        mHasWindowFocus=false
+        mWindowVisibility=8
+        mInTouchMode=true
+        mUnbufferedDispatchRequested=false
+      android.view.ViewRootImpl$NativePreImeInputStage: mQueueLength=0
+      android.view.ViewRootImpl$ImeInputStage: mQueueLength=0
+      android.view.ViewRootImpl$NativePostImeInputStage: mQueueLength=0
+      android.view.ViewRootImpl$WindowInputEventReceiver
+       mInputChannel: d853dab com.androidmusicplayerapp/com.androidmusicplayerapp.MainActivity (client)
+       mSeqMap: {}
+       mReceiverPtr:
+        mInputConsumer:
+          mResampleTouch = true
+          mChannel = d853dab com.androidmusicplayerapp/com.androidmusicplayerapp.MainActivity (client)
+          mMsgDeferred: false
+          Batches:
+              <empty>
+          mSeqChains:
+              <empty>
+          mConsumeTimes:
+              <empty>
+          
+        mBatchedInputEventPending: false
+        mOutboundQueue:
+          <empty>
+        
+    Choreographer:
+      mFrameScheduled=false
+      mLastFrameTime=8353213282 (9257 ms ago)
+    InsetsController:
+        InsetsState
+          mDisplayFrame=Rect(0, 0 - 720, 1650)
+          mDisplayCutout=DisplayCutout{insets=Rect(0, 68 - 0, 0) waterfall=Insets{left=0, top=0, right=0, bottom=0} boundingRect={Bounds=[Rect(0, 0 - 0, 0), Rect(309, 0 - 411, 68), Rect(0, 0 - 0, 0), Rect(0, 0 - 0, 0)]} cutoutPathParserInfo={CutoutPathParserInfo{displayWidth=720 displayHeight=1650 physicalDisplayWidth=720 physicalDisplayHeight=1650 density={2.0} cutoutSpec={M 0,0 H -51 V 68 H 51 V 0 H 0 Z} rotation={0} scale={1.0} physicalPixelDisplaySizeRatio={1.0}}} sideOverrides={}}
+          mRoundedCorners=RoundedCorners{[RoundedCorner{position=TopLeft, radius=0, center=Point(0, 0)}, RoundedCorner{position=TopRight, radius=0, center=Point(0, 0)}, RoundedCorner{position=BottomRight, radius=0, center=Point(0, 0)}, RoundedCorner{position=BottomLeft, radius=0, center=Point(0, 0)}]}
+          mRoundedCornerFrame=Rect(0, 0 - 720, 1650)
+          mPrivacyIndicatorBounds=PrivacyIndicatorBounds {static bounds=Rect(532, 0 - 696, 68) rotation=0}
+          mDisplayShape=DisplayShape{ spec=-1514511221 displayWidth=720 displayHeight=1650 physicalPixelDisplaySizeRatio=1.0 rotation=0 offsetX=0 offsetY=0 scale=1.0}
+            InsetsSource id=3 type=ime frame=[0,0][0,0] visibleFrame=[0,1650][720,1650] visible=false flags= sideHint=NONE boundingRects=null
+            InsetsSource id=27 type=displayCutout frame=[0,0][720,68] visible=true flags= sideHint=TOP boundingRects=null
+            InsetsSource id=16aa0001 type=navigationBars frame=[0,1554][720,1650] visible=true flags= sideHint=BOTTOM boundingRects=null
+            InsetsSource id=16aa0004 type=systemGestures frame=[0,0][0,0] visible=true flags= sideHint=NONE boundingRects=null
+            InsetsSource id=16aa0005 type=mandatorySystemGestures frame=[0,1554][720,1650] visible=true flags= sideHint=BOTTOM boundingRects=null
+            InsetsSource id=16aa0006 type=tappableElement frame=[0,1554][720,1650] visible=true flags= sideHint=BOTTOM boundingRects=null
+            InsetsSource id=16aa0024 type=systemGestures frame=[0,0][0,0] visible=true flags= sideHint=NONE boundingRects=null
+            InsetsSource id=320a0000 type=statusBars frame=[0,0][720,68] visible=true flags= sideHint=TOP boundingRects=null
+            InsetsSource id=320a0005 type=mandatorySystemGestures frame=[0,0][720,92] visible=true flags= sideHint=TOP boundingRects=null
+            InsetsSource id=320a0006 type=tappableElement frame=[0,0][720,68] visible=true flags= sideHint=TOP boundingRects=null
+        mIsPredictiveBackImeHideAnimInProgress=false
+    WindowOnBackDispatcher:
+        Top Callback: android.view.ViewRootImpl$$ExternalSyntheticLambda11@244c432
+        Callbacks: 
+          Callback: android.view.ViewRootImpl$$ExternalSyntheticLambda11@244c432 Priority=0
+    ImeBackAnimationController:
+        mLastProgress=0.0
+        mTriggerBack=false
+        mIsPreCommitAnimationInProgress=false
+        mStartRootScrollY=0
+        isBackAnimationAllowed=true
+        isAdjustPan=false
+        isHideAnimationInProgress=false
+    View Hierarchy:
+      DecorView@96d1b74[MainActivity]
+        android.widget.LinearLayout{18a389d V.E...... ........ 0,0-720,1650}
+          android.view.ViewStub{b882112 G.E...... ......I. 0,0-0,0 #10201cb android:id/action_mode_bar_stub}
+          android.widget.FrameLayout{8f5c0e3 V.E...... ........ 0,0-720,1650}
+            androidx.appcompat.widget.FitWindowsLinearLayout{3fa7ae0 V.E...... ........ 0,0-720,1650 #7f080036 app:id/action_bar_root}
+              androidx.appcompat.widget.ViewStubCompat{c56c199 G.E...... ......I. 0,0-0,0 #7f080041 app:id/action_mode_bar_stub}
+              androidx.appcompat.widget.ContentFrameLayout{5433c5e V.E...... ........ 0,0-720,1650 #1020002 android:id/content}
+                com.facebook.react.runtime.ReactSurfaceView{8b9883f V.E...... ........ 0,0-720,1650 #1}
+    Looper (main, tid 2) {e3c650c}
+      (Total messages: 0, polling=false, quitting=false)
+    ResourcesManager:
+      total apks: 6

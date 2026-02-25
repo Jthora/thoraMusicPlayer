@@ -1,0 +1,7 @@
+02-23 05:17:13.127 18183 18183 I AndroidRuntime: Using default boot image
+02-23 05:17:13.128 18183 18183 I AndroidRuntime: Leaving lock profiling enabled
+02-23 05:17:16.987 18243 18243 I AndroidRuntime: VM exiting with result code 0, cleanup skipped.
+02-23 05:17:42.261 18271 18271 I AndroidRuntime: Using default boot image
+02-23 05:17:42.262 18271 18271 I AndroidRuntime: Leaving lock profiling enabled
+02-23 05:23:42.727 18437 18437 I AndroidRuntime: Using default boot image
+02-23 05:23:42.727 18437 18437 I AndroidRuntime: Leaving lock profiling enabled

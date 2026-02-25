@@ -1,0 +1,343 @@
+# Full UX Refactor Progress Tracker
+
+Use this document as the single progress source for the major retrofit.
+
+## Tracking Rules
+- Mark only completed work with `[x]`.
+- Keep parent items unchecked until all child items are completed.
+- If scope changes, add new numbered items without renumbering existing completed items.
+
+---
+
+- [x] **1. Stage 1 — Foundation and Safety Rails**
+  - [x] **1.1 Phase 1 — Program Controls and Baseline**
+    - [x] **1.1.1 Step — Baseline Capture**
+      - [x] **1.1.1.1 Task:** Capture current startup UX baseline (screens + smoke notes)
+        - [x] **1.1.1.1.1 Subtask:** Define exact capture checklist and acceptance evidence format
+        - [x] **1.1.1.1.2 Subtask:** Execute capture on target flow/device and collect artifacts
+      - [x] **1.1.1.2 Task:** Capture current playback continuity baseline (play/pause/next/prev)
+        - [x] **1.1.1.2.1 Subtask:** Define exact capture checklist and acceptance evidence format
+        - [x] **1.1.1.2.2 Subtask:** Execute capture on target flow/device and collect artifacts
+      - [x] **1.1.1.3 Task:** Capture current search and playlist flows baseline
+        - [x] **1.1.1.3.1 Subtask:** Define exact capture checklist and acceptance evidence format
+        - [x] **1.1.1.3.2 Subtask:** Execute capture on target flow/device and collect artifacts
+    - [x] **1.1.2 Step — Solo Dev Scaffolding**
+      - [x] **1.1.2.1 Task:** Set up stable app-shell checkpoints for frequent iteration
+        - [x] **1.1.2.1.1 Subtask:** Define branch rhythm and checkpoint cadence
+        - [x] **1.1.2.1.2 Subtask:** Add lightweight smoke checklist per checkpoint
+      - [x] **1.1.2.2 Task:** Establish direct cutover order for each major surface
+        - [x] **1.1.2.2.1 Subtask:** Lock implementation order in tracker and plan docs
+        - [x] **1.1.2.2.2 Subtask:** Validate dependency order prevents blocked work
+      - [x] **1.1.2.3 Task:** Set strict regression gates before each cutover
+        - [x] **1.1.2.3.1 Subtask:** Define pass/fail checks for startup, playback, playlists
+        - [x] **1.1.2.3.2 Subtask:** Run gate checks on baseline before first major PR
+    - [x] **1.1.3 Step — Legacy Path Retirement Planning**
+      - [x] **1.1.3.1 Task:** List legacy surfaces to be replaced during cutover
+        - [x] **1.1.3.1.1 Subtask:** Inventory legacy routes and components
+        - [x] **1.1.3.1.2 Subtask:** Map each legacy path to replacement target
+      - [x] **1.1.3.2 Task:** Define removal criteria for replaced legacy paths
+        - [x] **1.1.3.2.1 Subtask:** Require acceptance and regression pass before removal
+        - [x] **1.1.3.2.2 Subtask:** Confirm no dead links after each retirement change
+
+- [x] **2. Stage 2 — Navigation and IA Retrofit**
+  - [x] **2.1 Phase 2 — New Tab Contract**
+    - [ ] **2.1.1 Step — Tab Key Migration**
+      - [x] **2.1.1.1 Task:** Replace tab keys with `home`, `search`, `yourLibrary`, `create`, `settings`
+        - [x] **2.1.1.1.1 Subtask:** Define scope and expected output
+        - [x] **2.1.1.1.2 Subtask:** Implement required change
+        - [x] **2.1.1.1.3 Subtask:** Validate result against acceptance criteria
+      - [x] **2.1.1.2 Task:** Update `IconTabBar` labels/icons for new IA
+        - [x] **2.1.1.2.1 Subtask:** Define scope and expected output
+        - [x] **2.1.1.2.2 Subtask:** Implement required change
+    - [ ] **2.1.2 Step — Route Scaffolds**
+      - [x] **2.1.2.1 Task:** Add shell scaffolds for each new top-level page
+        - [x] **2.1.2.1.1 Subtask:** Define scope and expected output
+        - [x] **2.1.2.1.2 Subtask:** Implement required change
+      - [x] **2.1.2.2 Task:** Ensure route transitions are non-blocking on data fetch
+        - [x] **2.1.2.2.1 Subtask:** Define scope and expected output
+        - [x] **2.1.2.2.2 Subtask:** Implement required change
+    - [x] **2.1.3 Step — Legacy Compatibility**
+      - [x] **2.1.3.1 Task:** Add compatibility wrappers for reused legacy panels
+        - [x] **2.1.3.1.1 Subtask:** Define scope and expected output
+        - [x] **2.1.3.1.2 Subtask:** Implement required change
+      - [x] **2.1.3.2 Task:** Remove old paths only after replacement paths are stable
+        - [x] **2.1.3.2.1 Subtask:** Verify replacement behavior in smoke suite
+
+- [x] **3. Stage 3 — Home Experience Redesign**
+  - [x] **3.1 Phase 3 — Home Content Migration**
+    - [x] **3.1.1 Step — Library-to-Home Rename**
+      - [x] **3.1.1.1 Task:** Rename legacy Library surface to Home
+        - [x] **3.1.1.1.1 Subtask:** Define scope and expected output
+      - [x] **3.1.1.2 Task:** Remove dead `Play from Library` CTA
+        - [x] **3.1.1.2.1 Subtask:** Identify all affected references and entry points
+        - [x] **3.1.1.2.2 Subtask:** Remove or demote the target behavior safely
+    - [x] **3.1.2 Step — Required Sections**
+      - [x] **3.1.2.1 Task:** Implement Recently Added section
+        - [x] **3.1.2.1.1 Subtask:** Define implementation scope and impacted files
+        - [x] **3.1.2.1.2 Subtask:** Implement core logic/UI behavior for this task
+        - [x] **3.1.2.1.3 Subtask:** Add state handling for loading, empty, and error cases
+      - [x] **3.1.2.2 Task:** Implement Last Played section (placeholder-safe)
+        - [x] **3.1.2.2.1 Subtask:** Define implementation scope and impacted files
+        - [x] **3.1.2.2.2 Subtask:** Implement core logic/UI behavior for this task
+        - [x] **3.1.2.2.3 Subtask:** Add state handling for loading, empty, and error cases
+      - [x] **3.1.2.3 Task:** Implement Popular Songs section (placeholder-safe)
+        - [x] **3.1.2.3.1 Subtask:** Define implementation scope and impacted files
+        - [x] **3.1.2.3.2 Subtask:** Implement core logic/UI behavior for this task
+        - [x] **3.1.2.3.3 Subtask:** Add state handling for loading, empty, and error cases
+    - [x] **3.1.3 Step — Empty/Error States**
+      - [x] **3.1.3.1 Task:** Add empty states for each section
+        - [x] **3.1.3.1.1 Subtask:** Define scope and expected output
+        - [x] **3.1.3.1.2 Subtask:** Implement required change
+      - [x] **3.1.3.2 Task:** Add non-blocking error states for data failures
+        - [x] **3.1.3.2.1 Subtask:** Define scope and expected output
+        - [x] **3.1.3.2.2 Subtask:** Implement required change
+
+- [ ] **4. Stage 4 — Your Library V2**
+  - [x] **4.1 Phase 4 — Library Entry and Filters**
+    - [x] **4.1.1 Step — Default Entry Behavior**
+      - [x] **4.1.1.1 Task:** Force default sub-page to All Songs on each entry
+        - [x] **4.1.1.1.1 Subtask:** Define scope and expected output
+        - [x] **4.1.1.1.2 Subtask:** Implement required change
+    - [x] **4.1.2 Step — Pill Filter Bar**
+      - [x] **4.1.2.1 Task:** Add pills for Playlists, Albums, Artists, All Songs
+        - [x] **4.1.2.1.1 Subtask:** Define scope and expected output
+        - [x] **4.1.2.1.2 Subtask:** Implement required change
+      - [x] **4.1.2.2 Task:** Add selected-state styling and state transitions
+        - [x] **4.1.2.2.1 Subtask:** Define scope and expected output
+        - [x] **4.1.2.2.2 Subtask:** Implement required change
+    - [x] **4.1.3 Step — Recently Played Header Content**
+      - [x] **4.1.3.1 Task:** Add recently played albums strip/list
+        - [x] **4.1.3.1.1 Subtask:** Define scope and expected output
+        - [x] **4.1.3.1.2 Subtask:** Implement required change
+      - [x] **4.1.3.2 Task:** Add recently played playlists strip/list
+        - [x] **4.1.3.2.1 Subtask:** Define scope and expected output
+        - [x] **4.1.3.2.2 Subtask:** Implement required change
+  - [x] **4.2 Phase 5 — All Songs Sorting**
+    - [x] **4.2.1 Step — Sort UI Contract**
+      - [x] **4.2.1.1 Task:** Add sort selector UI for all required modes
+        - [x] **4.2.1.1.1 Subtask:** Define scope and expected output
+        - [x] **4.2.1.1.2 Subtask:** Implement required change
+        - [x] **4.2.1.1.3 Subtask:** Validate result against acceptance criteria
+    - [x] **4.2.2 Step — Sort Implementations**
+      - [x] **4.2.2.1 Task:** Implement sort by Name
+        - [x] **4.2.2.1.1 Subtask:** Define implementation scope and impacted files
+        - [x] **4.2.2.1.2 Subtask:** Implement core logic/UI behavior for this task
+        - [x] **4.2.2.1.3 Subtask:** Add state handling for loading, empty, and error cases
+      - [x] **4.2.2.2 Task:** Implement sort by Album
+        - [x] **4.2.2.2.1 Subtask:** Define implementation scope and impacted files
+        - [x] **4.2.2.2.2 Subtask:** Implement core logic/UI behavior for this task
+        - [x] **4.2.2.2.3 Subtask:** Add state handling for loading, empty, and error cases
+      - [x] **4.2.2.3 Task:** Implement sort by Artist
+        - [x] **4.2.2.3.1 Subtask:** Define implementation scope and impacted files
+        - [x] **4.2.2.3.2 Subtask:** Implement core logic/UI behavior for this task
+        - [x] **4.2.2.3.3 Subtask:** Add state handling for loading, empty, and error cases
+      - [x] **4.2.2.4 Task:** Implement sort by Last Played
+        - [x] **4.2.2.4.1 Subtask:** Define implementation scope and impacted files
+        - [x] **4.2.2.4.2 Subtask:** Implement core logic/UI behavior for this task
+        - [x] **4.2.2.4.3 Subtask:** Add state handling for loading, empty, and error cases
+      - [x] **4.2.2.5 Task:** Implement sort by Most Played
+        - [x] **4.2.2.5.1 Subtask:** Define implementation scope and impacted files
+        - [x] **4.2.2.5.2 Subtask:** Implement core logic/UI behavior for this task
+        - [x] **4.2.2.5.3 Subtask:** Add state handling for loading, empty, and error cases
+      - [x] **4.2.2.6 Task:** Implement sort by Length
+        - [x] **4.2.2.6.1 Subtask:** Define implementation scope and impacted files
+        - [x] **4.2.2.6.2 Subtask:** Implement core logic/UI behavior for this task
+        - [x] **4.2.2.6.3 Subtask:** Add state handling for loading, empty, and error cases
+
+- [x] **5. Stage 5 — Unified Search**
+  - [x] **5.1 Phase 6 — Search UX Contract**
+    - [x] **5.1.1 Step — Scope Dropdown**
+      - [x] **5.1.1.1 Task:** Add filter dropdown with All / Song Names / Song Albums / Song Artists / Playlist Titles
+        - [x] **5.1.1.1.1 Subtask:** Define scope and expected output
+        - [x] **5.1.1.1.2 Subtask:** Implement required change
+    - [x] **5.1.2 Step — Unified Result Rendering**
+      - [x] **5.1.2.1 Task:** Add sectioned result groups by entity type
+        - [x] **5.1.2.1.1 Subtask:** Define scope and expected output
+        - [x] **5.1.2.1.2 Subtask:** Implement required change
+      - [x] **5.1.2.2 Task:** Add consistent row actions for playable/addable entities
+        - [x] **5.1.2.2.1 Subtask:** Define scope and expected output
+        - [x] **5.1.2.2.2 Subtask:** Implement required change
+  - [x] **5.2 Phase 7 — Search Data and Relevance**
+    - [x] **5.2.1 Step — Native Bridge Updates**
+      - [x] **5.2.1.1 Task:** Add `searchUnified(query, scope, limit)` bridge method
+        - [x] **5.2.1.1.1 Subtask:** Define request/response contract and TypeScript types
+        - [x] **5.2.1.1.2 Subtask:** Implement native method and JS bridge wiring
+        - [x] **5.2.1.1.3 Subtask:** Handle error/empty states and fallback behavior
+        - [x] **5.2.1.1.4 Subtask:** Validate performance and correctness with representative data
+      - [x] **5.2.1.2 Task:** Include playlist title indexing/query support
+        - [x] **5.2.1.2.1 Subtask:** Define request/response contract and TypeScript types
+        - [x] **5.2.1.2.2 Subtask:** Implement native method and JS bridge wiring
+    - [x] **5.2.2 Step — Ranking and Validation**
+      - [x] **5.2.2.1 Task:** Implement initial ranking rules for All scope
+        - [x] **5.2.2.1.1 Subtask:** Define implementation scope and impacted files
+        - [x] **5.2.2.1.2 Subtask:** Implement core logic/UI behavior for this task
+        - [x] **5.2.2.1.3 Subtask:** Add state handling for loading, empty, and error cases
+      - [x] **5.2.2.2 Task:** Add deterministic scope filter tests
+        - [x] **5.2.2.2.1 Subtask:** Define scope and expected output
+        - [x] **5.2.2.2.2 Subtask:** Implement required change
+
+- [x] **6. Stage 6 — Playback Modes and Queue Logic**
+  - [x] **6.1 Phase 8 — Playback Mode State**
+    - [x] **6.1.1 Step — State Model and Persistence**
+      - [x] **6.1.1.1 Task:** Add `endMode` state (`stop`, `repeat_all`, `repeat_one`)
+        - [x] **6.1.1.1.1 Subtask:** Define scope and expected output
+        - [x] **6.1.1.1.2 Subtask:** Implement required change
+      - [x] **6.1.1.2 Task:** Add `randomEnabled` state
+        - [x] **6.1.1.2.1 Subtask:** Define scope and expected output
+        - [x] **6.1.1.2.2 Subtask:** Implement required change
+      - [x] **6.1.1.3 Task:** Persist and restore playback mode settings
+        - [x] **6.1.1.3.1 Subtask:** Define scope and expected output
+        - [x] **6.1.1.3.2 Subtask:** Implement required change
+        - [x] **6.1.1.3.3 Subtask:** Validate result against acceptance criteria
+    - [x] **6.1.2 Step — UI Controls**
+      - [x] **6.1.2.1 Task:** Add end mode controls in Now Playing
+        - [x] **6.1.2.1.1 Subtask:** Define scope and expected output
+        - [x] **6.1.2.1.2 Subtask:** Implement required change
+      - [x] **6.1.2.2 Task:** Add random toggle in Now Playing
+        - [x] **6.1.2.2.1 Subtask:** Define scope and expected output
+        - [x] **6.1.2.2.2 Subtask:** Implement required change
+  - [x] **6.2 Phase 9 — Queue Advancement Rules**
+    - [x] **6.2.1 Step — End-of-Track Behavior**
+      - [x] **6.2.1.1 Task:** Implement stop-at-end behavior
+        - [x] **6.2.1.1.1 Subtask:** Define implementation scope and impacted files
+        - [x] **6.2.1.1.2 Subtask:** Implement core logic/UI behavior for this task
+        - [x] **6.2.1.1.3 Subtask:** Add state handling for loading, empty, and error cases
+      - [x] **6.2.1.2 Task:** Implement repeat-all behavior
+        - [x] **6.2.1.2.1 Subtask:** Define implementation scope and impacted files
+        - [x] **6.2.1.2.2 Subtask:** Implement core logic/UI behavior for this task
+        - [x] **6.2.1.2.3 Subtask:** Add state handling for loading, empty, and error cases
+      - [x] **6.2.1.3 Task:** Implement repeat-one behavior
+        - [x] **6.2.1.3.1 Subtask:** Define implementation scope and impacted files
+        - [x] **6.2.1.3.2 Subtask:** Implement core logic/UI behavior for this task
+        - [x] **6.2.1.3.3 Subtask:** Add state handling for loading, empty, and error cases
+    - [x] **6.2.2 Step — Randomization Behavior**
+      - [x] **6.2.2.1 Task:** Implement random next-track selection with no immediate repeat (queue > 1)
+        - [x] **6.2.2.1.1 Subtask:** Define implementation scope and impacted files
+        - [x] **6.2.2.1.2 Subtask:** Implement core logic/UI behavior for this task
+        - [x] **6.2.2.1.3 Subtask:** Add state handling for loading, empty, and error cases
+      - [x] **6.2.2.2 Task:** Keep manual next/previous behavior stable
+        - [x] **6.2.2.2.1 Subtask:** Define scope and expected output
+
+- [x] **7. Stage 7 — Data/Native Analytics Layer**
+  - [x] **7.1 Phase 10 — Playback Analytics Model**
+    - [x] **7.1.1 Step — Storage Schema**
+      - [x] **7.1.1.1 Task:** Add track play stats table/model (`playCount`, `lastPlayedAtSec`, `skipCount`)
+        - [x] **7.1.1.1.1 Subtask:** Define scope and expected output
+        - [x] **7.1.1.1.2 Subtask:** Implement required change
+      - [x] **7.1.1.2 Task:** Add migration path for existing installs
+        - [x] **7.1.1.2.1 Subtask:** Define scope and expected output
+        - [x] **7.1.1.2.2 Subtask:** Implement required change
+    - [x] **7.1.2 Step — Event Recording**
+      - [x] **7.1.2.1 Task:** Record playback start/completion/skip events
+        - [x] **7.1.2.1.1 Subtask:** Define scope and expected output
+        - [x] **7.1.2.1.2 Subtask:** Implement required change
+      - [x] **7.1.2.2 Task:** Apply completion threshold rule for popularity
+        - [x] **7.1.2.2.1 Subtask:** Define scope and expected output
+  - [x] **7.2 Phase 11 — Feed Query Endpoints**
+    - [x] **7.2.1 Step — Home/Library Queries**
+      - [x] **7.2.1.1 Task:** Add `getRecentlyPlayedTracks(limit)`
+        - [x] **7.2.1.1.1 Subtask:** Define scope and expected output
+        - [x] **7.2.1.1.2 Subtask:** Implement required change
+      - [x] **7.2.1.2 Task:** Add `getPopularTracks(limit, windowDays?)`
+        - [x] **7.2.1.2.1 Subtask:** Define scope and expected output
+        - [x] **7.2.1.2.2 Subtask:** Implement required change
+      - [x] **7.2.1.3 Task:** Add `getRecentlyPlayedAlbums(limit)`
+        - [x] **7.2.1.3.1 Subtask:** Define scope and expected output
+        - [x] **7.2.1.3.2 Subtask:** Implement required change
+      - [x] **7.2.1.4 Task:** Add `getRecentlyPlayedPlaylists(limit)`
+        - [x] **7.2.1.4.1 Subtask:** Define scope and expected output
+        - [x] **7.2.1.4.2 Subtask:** Implement required change
+
+- [x] **8. Stage 8 — Create Page and Playlist Authoring**
+  - [x] **8.1 Phase 12 — Create Surface**
+    - [x] **8.1.1 Step — Dedicated Create Page**
+      - [x] **8.1.1.1 Task:** Build Create page shell and state model
+        - [x] **8.1.1.1.1 Subtask:** Define implementation scope and impacted files
+        - [x] **8.1.1.1.2 Subtask:** Implement core logic/UI behavior for this task
+        - [x] **8.1.1.1.3 Subtask:** Add state handling for loading, empty, and error cases
+        - [x] **8.1.1.1.4 Subtask:** Run focused validation and record outcomes
+      - [x] **8.1.1.2 Task:** Move playlist creation flow into Create page
+        - [x] **8.1.1.2.1 Subtask:** Define scope and expected output
+    - [x] **8.1.2 Step — Song-to-Playlist Authoring**
+      - [x] **8.1.2.1 Task:** Add searchable song picker inside Create page
+        - [x] **8.1.2.1.1 Subtask:** Define scope and expected output
+        - [x] **8.1.2.1.2 Subtask:** Implement required change
+      - [x] **8.1.2.2 Task:** Add add-to-new and add-to-existing playlist actions
+        - [x] **8.1.2.2.1 Subtask:** Define scope and expected output
+        - [x] **8.1.2.2.2 Subtask:** Implement required change
+
+- [x] **9. Stage 9 — Settings Refactor + Runtime Theme System**
+  - [x] **9.1 Phase 13 — Settings Navigation Controller Layout**
+    - [x] **9.1.1 Step — Settings IA**
+      - [x] **9.1.1.1 Task:** Refactor settings into clear nav sections
+        - [x] **9.1.1.1.1 Subtask:** Define implementation scope and impacted files
+        - [x] **9.1.1.1.2 Subtask:** Implement core logic/UI behavior for this task
+        - [x] **9.1.1.1.3 Subtask:** Add state handling for loading, empty, and error cases
+        - [x] **9.1.1.1.4 Subtask:** Run focused validation and record outcomes
+      - [x] **9.1.1.2 Task:** Keep advanced reliability tools accessible but demoted
+        - [x] **9.1.1.2.1 Subtask:** Identify all affected references and entry points
+  - [x] **9.2 Phase 14 — Theme Color Control**
+    - [x] **9.2.1 Step — Theme Runtime Provider**
+      - [x] **9.2.1.1 Task:** Introduce ThemeContext + `useTheme()`
+        - [x] **9.2.1.1.1 Subtask:** Define implementation scope and impacted files
+        - [x] **9.2.1.1.2 Subtask:** Implement core logic/UI behavior for this task
+        - [x] **9.2.1.1.3 Subtask:** Add state handling for loading, empty, and error cases
+      - [x] **9.2.1.2 Task:** Add default preset from existing color spec
+        - [x] **9.2.1.2.1 Subtask:** Define scope and expected output
+        - [x] **9.2.1.2.2 Subtask:** Implement required change
+    - [x] **9.2.2 Step — Presets and Custom Theme Editing**
+      - [x] **9.2.2.1 Task:** Add preset selector UI
+        - [x] **9.2.2.1.1 Subtask:** Define scope and expected output
+        - [x] **9.2.2.1.2 Subtask:** Implement required change
+        - [x] **9.2.2.1.3 Subtask:** Validate result against acceptance criteria
+      - [x] **9.2.2.2 Task:** Add custom color editor with validation
+        - [x] **9.2.2.2.1 Subtask:** Define scope and expected output
+        - [x] **9.2.2.2.2 Subtask:** Implement required change
+        - [x] **9.2.2.2.3 Subtask:** Validate result against acceptance criteria
+      - [x] **9.2.2.3 Task:** Persist and restore selected theme
+        - [x] **9.2.2.3.1 Subtask:** Define scope and expected output
+        - [x] **9.2.2.3.2 Subtask:** Implement required change
+        - [x] **9.2.2.3.3 Subtask:** Validate result against acceptance criteria
+    - [x] **9.2.3 Step — Component Migration**
+      - [x] **9.2.3.1 Task:** Migrate core shared components to runtime theme
+        - [x] **9.2.3.1.1 Subtask:** Define implementation scope and impacted files
+        - [x] **9.2.3.1.2 Subtask:** Implement core logic/UI behavior for this task
+        - [x] **9.2.3.1.3 Subtask:** Add state handling for loading, empty, and error cases
+        - [x] **9.2.3.1.4 Subtask:** Run focused validation and record outcomes
+      - [x] **9.2.3.2 Task:** Migrate page-level styles to runtime theme
+        - [x] **9.2.3.2.1 Subtask:** Define implementation scope and impacted files
+        - [x] **9.2.3.2.2 Subtask:** Implement core logic/UI behavior for this task
+        - [x] **9.2.3.2.3 Subtask:** Add state handling for loading, empty, and error cases
+        - [x] **9.2.3.2.4 Subtask:** Run focused validation and record outcomes
+
+- [ ] **10. Stage 10 — QA Hardening and Release Readiness**
+  - [ ] **10.1 Phase 15 — Acceptance Matrix Completion**
+    - [ ] **10.1.1 Step — Functional Acceptance**
+      - [ ] **10.1.1.1 Task:** Pass navigation acceptance checks
+        - [ ] **10.1.1.1.1 Subtask:** Define explicit pass/fail criteria for this validation
+      - [ ] **10.1.1.2 Task:** Pass Home / Search / Library / Create / Settings checks
+        - [ ] **10.1.1.2.1 Subtask:** Define explicit pass/fail criteria for this validation
+      - [ ] **10.1.1.3 Task:** Pass playback mode behavior checks
+        - [ ] **10.1.1.3.1 Subtask:** Define explicit pass/fail criteria for this validation
+    - [ ] **10.1.2 Step — Regression Acceptance**
+      - [ ] **10.1.2.1 Task:** Validate playlist import/manage regressions
+        - [ ] **10.1.2.1.1 Subtask:** Define explicit pass/fail criteria for this validation
+        - [ ] **10.1.2.1.2 Subtask:** Execute validation scenarios and capture outcomes
+      - [ ] **10.1.2.2 Task:** Validate startup first-open/reopen behavior
+        - [ ] **10.1.2.2.1 Subtask:** Define explicit pass/fail criteria for this validation
+        - [ ] **10.1.2.2.2 Subtask:** Execute validation scenarios and capture outcomes
+  - [ ] **10.2 Phase 16 — Stabilization and Direct Cutover**
+    - [ ] **10.2.1 Step — Incremental Surface Cutover**
+      - [ ] **10.2.1.1 Task:** Cut over each surface and validate independently
+        - [ ] **10.2.1.1.1 Subtask:** Replace one surface at a time in planned order
+        - [ ] **10.2.1.1.2 Subtask:** Run focused validation after each cutover
+      - [ ] **10.2.1.2 Task:** Validate full integrated app behavior after all cutovers
+        - [ ] **10.2.1.2.1 Subtask:** Run complete smoke and acceptance matrix
+        - [ ] **10.2.1.2.2 Subtask:** Fix integration regressions before final polish
+        - [ ] **10.2.1.2.3 Subtask:** Re-run full pass and archive evidence
+    - [ ] **10.2.2 Step — Legacy Path Removal Readiness**
+      - [ ] **10.2.2.1 Task:** Confirm two consecutive QA passes
+        - [ ] **10.2.2.1.1 Subtask:** Define explicit pass/fail criteria for this validation
+        - [ ] **10.2.2.1.2 Subtask:** Execute validation scenarios and capture outcomes
+      - [ ] **10.2.2.2 Task:** Mark legacy code paths ready for removal
+        - [ ] **10.2.2.2.1 Subtask:** Define scope and expected output

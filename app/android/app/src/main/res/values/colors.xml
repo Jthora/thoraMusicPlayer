@@ -1,0 +1,6 @@
+<resources>
+    <color name="splash_background">#0F1318</color>
+    <color name="icon_background">#1B2330</color>
+    <color name="icon_border">#3A475B</color>
+    <color name="icon_note">#5BD1FF</color>
+</resources>

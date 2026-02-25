@@ -1,0 +1,7 @@
+  bash arg: -p
+  bash arg: com.androidmusicplayerapp
+  bash arg: -c
+  bash arg: android.intent.category.LAUNCHER
+  bash arg: 80
+Events injected: 80
+## Network stats: elapsed time=4005ms (0ms mobile, 0ms wifi, 4005ms not connected)
