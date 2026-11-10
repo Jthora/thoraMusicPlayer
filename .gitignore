@@ -1,0 +1,7 @@
+.DS_Store
+
+# Transfer tooling (scripts/transfer)
+scripts/transfer/.venv/
+scripts/transfer/thora-transfer.toml
+__pycache__/
+*.pyc
