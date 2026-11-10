@@ -8,7 +8,6 @@ import {
   UnifiedSearchScope,
   UserPlaylist,
   mediaLibrary,
-  playbackControl,
 } from '../../native/modules';
 import {useStableCallback} from '../../platform/hooks/useStableCallback';
 
@@ -277,20 +276,6 @@ export function useSearchBrowse() {
     }
   });
 
-  const playFromBrowse = useStableCallback(async () => {
-    if (!playbackControl) {
-      setStatus('Playback control unavailable');
-      return;
-    }
-
-    try {
-      await playbackControl.startPlaybackService();
-      await playbackControl.play();
-      setStatus('Playback triggered from browse view');
-    } catch (error) {
-      setStatus(`Playback action failed (${getErrorMessage(error)})`);
-    }
-  });
 
   const validateSearchRelevance = useStableCallback(async () => {
     if (!mediaLibrary) {
@@ -322,7 +307,6 @@ export function useSearchBrowse() {
     browseAlbums,
     browseArtists,
     browseSongs,
-    playFromBrowse,
     validateSearchRelevance,
   };
 }

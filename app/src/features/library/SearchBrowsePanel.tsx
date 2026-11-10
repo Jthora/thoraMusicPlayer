@@ -31,7 +31,8 @@ type SearchBrowsePanelProps = {
   onBrowseAlbums: () => Promise<void>;
   onBrowseArtists: () => Promise<void>;
   onBrowseSongs: () => Promise<void>;
-  onPlayFromBrowse: () => Promise<void>;
+  /** Play `tracks` as the queue, starting at `startUri` (the first track when null). */
+  onPlayTracks: (tracks: MediaStoreTrack[], startUri: string | null, sourceLabel: string) => void;
   onValidateRelevance: () => Promise<void>;
   onQuickAddTrack?: (track: MediaStoreTrack) => Promise<void>;
   onOpenPlaylists?: () => void;
@@ -110,7 +111,7 @@ export function SearchBrowsePanel(props: SearchBrowsePanelProps) {
     onBrowseAlbums,
     onBrowseArtists,
     onBrowseSongs,
-    onPlayFromBrowse,
+    onPlayTracks,
     onValidateRelevance,
     onQuickAddTrack,
     onOpenPlaylists,
@@ -369,7 +370,7 @@ export function SearchBrowsePanel(props: SearchBrowsePanelProps) {
                           <AppButton
                             title="▶"
                             onPress={() => {
-                              void onPlayFromBrowse();
+                              onPlayTracks(filteredTrackSearchResults, item.uri, 'search');
                             }}
                             variant="primary"
                           />
@@ -484,7 +485,7 @@ export function SearchBrowsePanel(props: SearchBrowsePanelProps) {
                             void onQuickAddTrack(item.track);
                             return;
                           }
-                          void onPlayFromBrowse();
+                          onPlayTracks(folderRows.tracks, item.track.uri, `search:folder:${currentFolderPath}`);
                         }}
                         variant="primary"
                       />
@@ -547,7 +548,7 @@ export function SearchBrowsePanel(props: SearchBrowsePanelProps) {
 
       {mode === 'songs' && (
         <>
-          <Pressable onPress={() => void onPlayFromBrowse()} disabled={songs.length === 0} style={styles.compactAction}>
+          <Pressable onPress={() => onPlayTracks(songs, null, 'search:songs')} disabled={songs.length === 0} style={styles.compactAction}>
             <Text style={[styles.compactActionLabel, songs.length === 0 ? styles.compactActionLabelDisabled : null]}>PLAY SONGS</Text>
           </Pressable>
           {songs.length === 0 ? (
@@ -573,7 +574,7 @@ export function SearchBrowsePanel(props: SearchBrowsePanelProps) {
                         void onQuickAddTrack(item);
                         return;
                       }
-                      void onPlayFromBrowse();
+                      onPlayTracks(songs, item.uri, 'search:songs');
                     }}
                     variant="primary"
                   />
@@ -597,7 +598,8 @@ export function SearchBrowsePanel(props: SearchBrowsePanelProps) {
                   key: 'play',
                   label: 'PLAY RESULTS',
                   primary: true,
-                  onPress: () => void onPlayFromBrowse(),
+                  onPress: () =>
+                    onPlayTracks(filteredTrackSearchResults, filteredTrackSearchResults[selectedSearchIndex]?.uri ?? null, 'search'),
                   disabled: filteredTrackSearchResults.length === 0,
                 },
                 {
@@ -628,7 +630,7 @@ export function SearchBrowsePanel(props: SearchBrowsePanelProps) {
                   key: 'play',
                   label: 'PLAY SONGS',
                   primary: true,
-                  onPress: () => void onPlayFromBrowse(),
+                  onPress: () => onPlayTracks(songs, songs[selectedSongIndex]?.uri ?? null, 'search:songs'),
                   disabled: songs.length === 0,
                 },
                 {

@@ -94,7 +94,6 @@ export function LegacyDebugShell() {
     browseAlbums,
     browseArtists,
     browseSongs,
-    playFromBrowse,
     validateSearchRelevance,
   } = useSearchBrowse();
   const {
@@ -105,6 +104,7 @@ export function LegacyDebugShell() {
     setAnchorByIndex,
     reorderQueue,
     removeFromQueue,
+    loadQueueAndStart,
   } = useFolderQueue();
   const {
     status: playlistImportStatus,
@@ -256,7 +256,12 @@ export function LegacyDebugShell() {
         onBrowseAlbums={browseAlbums}
         onBrowseArtists={browseArtists}
         onBrowseSongs={browseSongs}
-        onPlayFromBrowse={playFromBrowse}
+        onPlayTracks={(tracks, startUri, sourceLabel) => {
+          const index = startUri ? tracks.findIndex(track => track.uri === startUri) : 0;
+          if (index >= 0) {
+            void loadQueueAndStart(tracks, index, sourceLabel);
+          }
+        }}
         onValidateRelevance={validateSearchRelevance}
       />
       <FolderQueuePanel

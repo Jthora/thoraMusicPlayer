@@ -28,6 +28,7 @@ import {useDeviceSetupGuidance} from '../features/reliability/useDeviceSetupGuid
 import {FolderGrantsPanel} from '../features/storage/FolderGrantsPanel';
 import {useFolderGrants} from '../features/storage/useFolderGrants';
 import {MediaStoreTrack, playbackControl} from '../native/modules';
+import {logDiagnostic} from '../platform/diagnostics';
 import {AppButton} from '../ui/components/AppButton';
 import {IconTabBar} from '../ui/components/IconTabBar';
 import {MiniNowPlayingDock} from '../ui/components/MiniNowPlayingDock';
@@ -465,7 +466,7 @@ type SearchTabSceneProps = {
   onBrowseAlbums: ReturnType<typeof useSearchBrowse>['browseAlbums'];
   onBrowseArtists: ReturnType<typeof useSearchBrowse>['browseArtists'];
   onBrowseSongs: ReturnType<typeof useSearchBrowse>['browseSongs'];
-  onPlayFromBrowse: ReturnType<typeof useSearchBrowse>['playFromBrowse'];
+  onPlayTracks: (tracks: MediaStoreTrack[], startUri: string | null, sourceLabel: string) => void;
   onValidateRelevance: ReturnType<typeof useSearchBrowse>['validateSearchRelevance'];
   onQuickAddTrack: ReturnType<typeof useUserPlaylists>['addTrack'];
   onOpenPlaylists: () => void;
@@ -485,7 +486,7 @@ const SearchTabScene = memo(function SearchTabScene({
   onBrowseAlbums,
   onBrowseArtists,
   onBrowseSongs,
-  onPlayFromBrowse,
+  onPlayTracks,
   onValidateRelevance,
   onQuickAddTrack,
   onOpenPlaylists,
@@ -505,7 +506,7 @@ const SearchTabScene = memo(function SearchTabScene({
       onBrowseAlbums={onBrowseAlbums}
       onBrowseArtists={onBrowseArtists}
       onBrowseSongs={onBrowseSongs}
-      onPlayFromBrowse={onPlayFromBrowse}
+      onPlayTracks={onPlayTracks}
       onValidateRelevance={onValidateRelevance}
       onQuickAddTrack={onQuickAddTrack}
       onOpenPlaylists={onOpenPlaylists}
@@ -1271,7 +1272,6 @@ export function ProductionAppShell() {
     browseAlbums,
     browseArtists,
     browseSongs,
-    playFromBrowse,
     validateSearchRelevance,
   } = useSearchBrowse();
   const deferredSongs = useDeferredValue(songs);
@@ -1373,9 +1373,26 @@ export function ProductionAppShell() {
     }
 
     const index = trackList.findIndex(item => item.uri === trackUri);
-    const targetIndex = index >= 0 ? index : 0;
-    await loadQueueAndStart(trackList, targetIndex, sourceLabel);
+    if (index < 0) {
+      // Never substitute another song: a tapped song missing from the list it was tapped in is a
+      // wiring bug, and playing track 0 instead hid one (Search played the previous queue).
+      logDiagnostic('error', 'playback', 'Tapped track is not in the list it was played from', {
+        sourceLabel,
+        uri: trackUri,
+        tracks: String(trackList.length),
+      });
+      return;
+    }
+    await loadQueueAndStart(trackList, index, sourceLabel);
   }, [loadQueueAndStart]);
+
+  /** Search screen: play `tracks`, starting at `startUri` (the first track when null). */
+  const handlePlayTracks = useCallback((tracks: MediaStoreTrack[], startUri: string | null, sourceLabel: string) => {
+    const uri = startUri ?? tracks[0]?.uri;
+    if (uri) {
+      void playTrackFromList(tracks, uri, sourceLabel);
+    }
+  }, [playTrackFromList]);
   const {
     currentTrack,
     isPlaying,
@@ -2283,7 +2300,7 @@ export function ProductionAppShell() {
             onBrowseAlbums={browseAlbums}
             onBrowseArtists={browseArtists}
             onBrowseSongs={browseSongs}
-            onPlayFromBrowse={playFromBrowse}
+            onPlayTracks={handlePlayTracks}
             onValidateRelevance={validateSearchRelevance}
             onQuickAddTrack={addTrack}
             onOpenPlaylists={handleOpenPlaylistsFromSearch}
