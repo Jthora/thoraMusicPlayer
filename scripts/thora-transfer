@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# NAS -> Mac -> phone music transfer + playlist repair. See scripts/transfer/README.md.
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PY="$HERE/transfer/.venv/bin/python"
+if [[ ! -x "$PY" ]]; then
+  echo "note: $HERE/transfer/.venv missing (run scripts/transfer/setup.sh while online); using system python3" >&2
+  PY="$(command -v python3)"
+fi
+
+export PYTHONPATH="$HERE/transfer${PYTHONPATH:+:$PYTHONPATH}"
+exec "$PY" -m thora_transfer "$@"

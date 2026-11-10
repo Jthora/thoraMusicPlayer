@@ -1,0 +1,43 @@
+# Copy to thora-transfer.toml (gitignored; setup.sh does this) and edit.
+
+# Where state.db, reports and generated playlists live. Small; music is never staged here.
+state_dir = "~/ThoraTransfer"
+
+# Leave empty to auto-pick the only connected phone.
+device_serial = "YXAECI79W8EQGE7X"
+
+# Everything this tool writes on the phone lives under here. Playlists go in <phone_root>/_playlists.
+phone_root = "/sdcard/Music/Thora"
+
+# Keep this much phone storage free (GB).
+headroom_gb = 8
+
+# One entry per folder on the mounted NAS share. The label becomes the top folder on the phone.
+# Labels: no '/', and must not start with '.' or '_'.
+[[sources]]
+label = "library"
+path = "/Volumes/music/Library"          # placeholder: set once the share is mounted
+exclude = []                              # extra globs, e.g. ["**/Podcasts/**", "**/*.wav"]
+# transcode = "opus192"                   # optional: lossless -> Opus 192k to save space (opus128, aac256)
+
+[[sources]]
+label = "spotifyBackerUpper"
+path = "/Volumes/music/spotifyBackerUpper"
+exclude = []
+
+[playlists]
+# Extra folders (on the Mac or the NAS) to search for playlist files. Sources are always searched.
+extra_dirs = []
+
+# Matching thresholds: >= auto_accept is used directly, >= review goes to review.csv.
+auto_accept_score = 0.85
+review_score = 0.60
+
+# Old absolute prefixes found inside legacy playlists -> "<label>/<subpath>" in the new layout.
+[[playlists.remap]]
+from = "/home/jono/workspace/github/spotifyBackerUpper/"
+to = "spotifyBackerUpper/"
+
+[formats]
+# Extensions to treat as playable in addition to the defaults (mp3 flac m4a aac ogg opus wav mka ...).
+extra_playable = []
