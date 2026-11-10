@@ -167,10 +167,10 @@ export function DeviceSetupPanel(props: DeviceSetupPanelProps) {
         <Text style={styles.meta}>Baseline snapshot: {baselineCaptured ? 'Captured' : 'Pending'}</Text>
 
         <Text style={styles.pathTitle}>Battery setup path</Text>
-        <Text style={styles.pathText}>Settings → Apps → Manage apps → Android Music Player → Battery saver → No restrictions</Text>
+        <Text style={styles.pathText}>Settings → Apps → Manage apps → Tho'ra Player → Battery saver → No restrictions</Text>
 
         <Text style={styles.pathTitle}>Autostart setup path</Text>
-        <Text style={styles.pathText}>Settings → Apps → Permissions → Autostart → Android Music Player (enable)</Text>
+        <Text style={styles.pathText}>Settings → Apps → Permissions → Autostart → Tho'ra Player (enable)</Text>
 
         <View style={styles.row}>
           <View style={styles.buttonWrap}>

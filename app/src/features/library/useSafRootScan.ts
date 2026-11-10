@@ -1,13 +1,14 @@
 import {useState} from 'react';
 
 import {mediaLibrary, MediaStoreTrack, ScanDiagnostic} from '../../native/modules';
+import {useStableCallback} from '../../platform/hooks/useStableCallback';
 
 export function useSafRootScan() {
   const [scanStatus, setScanStatus] = useState('Idle');
   const [tracks, setTracks] = useState<MediaStoreTrack[]>([]);
   const [diagnostics, setDiagnostics] = useState<ScanDiagnostic[]>([]);
 
-  const scanSafRoots = async (limitPerRoot = 100) => {
+  const scanSafRoots = useStableCallback(async (limitPerRoot = 100) => {
     if (!mediaLibrary) {
       setScanStatus('MediaLibrary module unavailable');
       return;
@@ -27,7 +28,7 @@ export function useSafRootScan() {
     } catch {
       setScanStatus('SAF scan failed');
     }
-  };
+  });
 
   return {
     scanStatus,

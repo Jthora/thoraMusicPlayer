@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react';
 
 import {FolderGrant, storageAccess} from '../../native/modules';
+import {useStableCallback} from '../../platform/hooks/useStableCallback';
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim()) {
@@ -18,7 +19,7 @@ export function useFolderGrants() {
   const [folderGrantStatus, setFolderGrantStatus] = useState('Using default Music folder');
   const [folderGrants, setFolderGrants] = useState<FolderGrant[]>([]);
 
-  const refreshFolderGrants = async () => {
+  const refreshFolderGrants = useStableCallback(async () => {
     if (!storageAccess) {
       setFolderGrantStatus('Folder access module unavailable');
       return [];
@@ -41,13 +42,13 @@ export function useFolderGrants() {
       setFolderGrantStatus(`Failed to load folder grants (${getErrorMessage(error)})`);
       return [];
     }
-  };
+  });
 
   useEffect(() => {
     void refreshFolderGrants();
-  }, []);
+  }, [refreshFolderGrants]);
 
-  const pickFolderRoot = async () => {
+  const pickFolderRoot = useStableCallback(async () => {
     if (!storageAccess) {
       setFolderGrantStatus('Folder access module unavailable');
       return false;
@@ -62,9 +63,9 @@ export function useFolderGrants() {
       setFolderGrantStatus(`Folder pick cancelled or failed (${getErrorMessage(error)})`);
       return false;
     }
-  };
+  });
 
-  const cleanupRevokedGrants = async () => {
+  const cleanupRevokedGrants = useStableCallback(async () => {
     if (!storageAccess) {
       setFolderGrantStatus('Folder access module unavailable');
       return;
@@ -77,9 +78,9 @@ export function useFolderGrants() {
     } catch (error) {
       setFolderGrantStatus(`Failed to cleanup revoked grants (${getErrorMessage(error)})`);
     }
-  };
+  });
 
-  const removeGrant = async (uri: string) => {
+  const removeGrant = useStableCallback(async (uri: string) => {
     if (!storageAccess) {
       setFolderGrantStatus('Folder access module unavailable');
       return;
@@ -92,7 +93,7 @@ export function useFolderGrants() {
     } catch (error) {
       setFolderGrantStatus(`Failed to remove folder grant (${getErrorMessage(error)})`);
     }
-  };
+  });
 
   return {
     folderGrantStatus,

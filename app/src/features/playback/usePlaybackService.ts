@@ -1,6 +1,7 @@
 import {useState} from 'react';
 
 import {playbackControl} from '../../native/modules';
+import {useStableCallback} from '../../platform/hooks/useStableCallback';
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim()) {
@@ -17,7 +18,7 @@ function getErrorMessage(error: unknown): string {
 export function usePlaybackService() {
   const [serviceStatus, setServiceStatus] = useState('Idle');
 
-  const startService = async () => {
+  const startService = useStableCallback(async () => {
     if (!playbackControl) {
       setServiceStatus('Unavailable');
       return;
@@ -29,9 +30,9 @@ export function usePlaybackService() {
     } catch (error) {
       setServiceStatus(`Start failed (${getErrorMessage(error)})`);
     }
-  };
+  });
 
-  const stopService = async () => {
+  const stopService = useStableCallback(async () => {
     if (!playbackControl) {
       setServiceStatus('Unavailable');
       return;
@@ -43,7 +44,7 @@ export function usePlaybackService() {
     } catch (error) {
       setServiceStatus(`Stop failed (${getErrorMessage(error)})`);
     }
-  };
+  });
 
   return {
     serviceStatus,

@@ -1,6 +1,7 @@
 import {useState} from 'react';
 
 import {mediaLibrary, MediaStoreTrack} from '../../native/modules';
+import {useStableCallback} from '../../platform/hooks/useStableCallback';
 
 export function useMediaStoreScan() {
   const [scanStatus, setScanStatus] = useState('Idle');
@@ -8,7 +9,7 @@ export function useMediaStoreScan() {
   const [nextOffset, setNextOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
 
-  const scanMediaStore = async (limit = 50) => {
+  const scanMediaStore = useStableCallback(async (limit = 50) => {
     if (!mediaLibrary) {
       setScanStatus('MediaLibrary module unavailable');
       return;
@@ -29,9 +30,9 @@ export function useMediaStoreScan() {
     } catch {
       setScanStatus('Scan failed');
     }
-  };
+  });
 
-  const loadMoreMediaStore = async (limit = 50) => {
+  const loadMoreMediaStore = useStableCallback(async (limit = 50) => {
     if (!mediaLibrary || !hasMore) {
       return;
     }
@@ -51,7 +52,7 @@ export function useMediaStoreScan() {
     } catch {
       setScanStatus('Load more failed');
     }
-  };
+  });
 
   return {
     scanStatus,

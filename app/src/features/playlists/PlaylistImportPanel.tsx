@@ -32,11 +32,11 @@ export function PlaylistImportPanel(props: PlaylistImportPanelProps) {
       : 'neutral';
 
   return (
-    <SectionCard title="Import Playlist" subtitle="Bring in .m3u/.m3u8 files and resolve entries.">
+    <SectionCard title="Import Playlists" subtitle="Pick one or more .m3u, .m3u8, .pls or .xspf files. Each becomes a playlist; songs not in the library are listed below.">
       <StatusChip label={`IMPORT: ${status}`} tone={statusTone} />
       <View style={styles.row}>
         <View style={styles.buttonWrap}>
-          <AppButton title="IMPORT PLAYLIST" onPress={() => void onImport()} variant="primary" />
+          <AppButton title="IMPORT PLAYLISTS" onPress={() => void onImport()} variant="primary" />
         </View>
         <View style={styles.buttonWrap}>
           <AppButton title="REFRESH" onPress={() => void onRefreshLatest()} />
@@ -49,7 +49,10 @@ export function PlaylistImportPanel(props: PlaylistImportPanelProps) {
           />
         </View>
       </View>
-      <Text style={styles.meta}>Source: {latestImport.sourceName || '-'}</Text>
+      <Text style={styles.meta}>
+        Last: {latestImport.sourceName || '-'}
+        {latestImport.playlistName ? ` → playlist "${latestImport.playlistName}"` : ''}
+      </Text>
       <Text style={styles.meta}>
         Entries: {latestImport.totalEntries} • Resolved: {latestImport.resolvedCount} • Unresolved: {latestImport.unresolvedCount}
       </Text>
@@ -59,7 +62,7 @@ export function PlaylistImportPanel(props: PlaylistImportPanelProps) {
       <FlatList
         scrollEnabled={false}
         style={styles.list}
-        data={latestImport.diagnostics.slice(0, 10)}
+        data={latestImport.diagnostics.filter(item => item.status !== 'duplicate').slice(0, 10)}
         keyExtractor={(item, index) => `${item.lineNumber}-${item.reasonCode}-${index}`}
         renderItem={({item}) => (
           <Text style={styles.diagnostic} numberOfLines={1}>{formatDiagnostic(item)}</Text>

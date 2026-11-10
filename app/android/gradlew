@@ -114,6 +114,14 @@ case "$( uname )" in                #(
   NONSTOP* )        nonstop=true ;;
 esac
 
+# Prevent host SDK include-path leakage into Android NDK builds on macOS.
+if [ "$darwin" = "true" ]; then
+        unset CPATH
+        unset C_INCLUDE_PATH
+        unset CPLUS_INCLUDE_PATH
+        unset SDKROOT
+fi
+
 CLASSPATH="\\\"\\\""
 
 

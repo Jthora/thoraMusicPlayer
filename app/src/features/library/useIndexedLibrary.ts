@@ -7,6 +7,7 @@ import {
   ScanDiagnostic,
   SyncStatus,
 } from '../../native/modules';
+import {useStableCallback} from '../../platform/hooks/useStableCallback';
 
 const defaultStats: IndexStats = {
   totalTracks: 0,
@@ -57,14 +58,14 @@ export function useIndexedLibrary() {
   const requestSeqRef = useRef(0);
   const syncInFlightRef = useRef(false);
 
-  const nextRequestSeq = () => {
+  const nextRequestSeq = useStableCallback(() => {
     requestSeqRef.current += 1;
     return requestSeqRef.current;
-  };
+  });
 
   const isCurrentRequest = (requestSeq: number) => requestSeqRef.current === requestSeq;
 
-  const refreshStats = async () => {
+  const refreshStats = useStableCallback(async () => {
     if (!mediaLibrary) {
       setStatus('MediaLibrary module unavailable');
       return;
@@ -81,9 +82,9 @@ export function useIndexedLibrary() {
     } catch (error) {
       setStatus(`Failed to load index stats (${getErrorMessage(error)})`);
     }
-  };
+  });
 
-  const searchIndex = async (query: string, limit = 25) => {
+  const searchIndex = useStableCallback(async (query: string, limit = 25) => {
     if (!mediaLibrary) {
       setStatus('MediaLibrary module unavailable');
       return;
@@ -107,9 +108,9 @@ export function useIndexedLibrary() {
     } catch (error) {
       setStatus(`Index search failed (${getErrorMessage(error)})`);
     }
-  };
+  });
 
-  const refreshLatestSync = async () => {
+  const refreshLatestSync = useStableCallback(async () => {
     if (!mediaLibrary) {
       setStatus('MediaLibrary module unavailable');
       return;
@@ -138,9 +139,9 @@ export function useIndexedLibrary() {
     } catch (error) {
       setStatus(`Failed to load sync diagnostics (${getErrorMessage(error)})`);
     }
-  };
+  });
 
-  const runIncrementalMediaSync = async () => {
+  const runIncrementalMediaSync = useStableCallback(async () => {
     if (!mediaLibrary) {
       setStatus('MediaLibrary module unavailable');
       return;
@@ -165,9 +166,9 @@ export function useIndexedLibrary() {
     } finally {
       syncInFlightRef.current = false;
     }
-  };
+  });
 
-  const runIncrementalSafSync = async () => {
+  const runIncrementalSafSync = useStableCallback(async () => {
     if (!mediaLibrary) {
       setStatus('MediaLibrary module unavailable');
       return;
@@ -191,7 +192,7 @@ export function useIndexedLibrary() {
     } finally {
       syncInFlightRef.current = false;
     }
-  };
+  });
 
   return {
     status,

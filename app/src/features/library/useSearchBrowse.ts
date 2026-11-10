@@ -10,6 +10,7 @@ import {
   mediaLibrary,
   playbackControl,
 } from '../../native/modules';
+import {useStableCallback} from '../../platform/hooks/useStableCallback';
 
 const MAX_QUERY_LENGTH = 256;
 const MAX_SEARCH_LIMIT = 100;
@@ -78,7 +79,7 @@ export function useSearchBrowse() {
     songs: null,
   });
 
-  const search = async (query: string, scope: UnifiedSearchScope = 'all', limit = 30) => {
+  const search = useStableCallback(async (query: string, scope: UnifiedSearchScope = 'all', limit = 30) => {
     if (!mediaLibrary) {
       setStatus('MediaLibrary module unavailable');
       return;
@@ -157,9 +158,9 @@ export function useSearchBrowse() {
     } finally {
       inFlightSearchRef.current.delete(cacheKey);
     }
-  };
+  });
 
-  const browseAlbums = async (limit = 50, options?: {force?: boolean}) => {
+  const browseAlbums = useStableCallback(async (limit = 50, options?: {force?: boolean}) => {
     if (!mediaLibrary) {
       setStatus('MediaLibrary module unavailable');
       return;
@@ -196,9 +197,9 @@ export function useSearchBrowse() {
     } finally {
       inFlightBrowseRef.current.albums = null;
     }
-  };
+  });
 
-  const browseArtists = async (limit = 50, options?: {force?: boolean}) => {
+  const browseArtists = useStableCallback(async (limit = 50, options?: {force?: boolean}) => {
     if (!mediaLibrary) {
       setStatus('MediaLibrary module unavailable');
       return;
@@ -235,9 +236,9 @@ export function useSearchBrowse() {
     } finally {
       inFlightBrowseRef.current.artists = null;
     }
-  };
+  });
 
-  const browseSongs = async (limit = 100, options?: {force?: boolean}) => {
+  const browseSongs = useStableCallback(async (limit = 100, options?: {force?: boolean}) => {
     if (!mediaLibrary) {
       setStatus('MediaLibrary module unavailable');
       return;
@@ -274,9 +275,9 @@ export function useSearchBrowse() {
     } finally {
       inFlightBrowseRef.current.songs = null;
     }
-  };
+  });
 
-  const playFromBrowse = async () => {
+  const playFromBrowse = useStableCallback(async () => {
     if (!playbackControl) {
       setStatus('Playback control unavailable');
       return;
@@ -289,9 +290,9 @@ export function useSearchBrowse() {
     } catch (error) {
       setStatus(`Playback action failed (${getErrorMessage(error)})`);
     }
-  };
+  });
 
-  const validateSearchRelevance = async () => {
+  const validateSearchRelevance = useStableCallback(async () => {
     if (!mediaLibrary) {
       setStatus('MediaLibrary module unavailable');
       return;
@@ -307,7 +308,7 @@ export function useSearchBrowse() {
     } catch (error) {
       setStatus(`Search relevance validation failed (${getErrorMessage(error)})`);
     }
-  };
+  });
 
   return {
     status,

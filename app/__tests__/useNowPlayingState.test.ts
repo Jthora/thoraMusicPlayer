@@ -1,12 +1,29 @@
 import {
-  normalizeEndMode,
-  pickRandomNextIndex,
-  resolveEndOfTrackTransition,
-  resolveManualNextIndex,
-  resolveManualPreviousIndex,
-} from '../src/features/playback/useNowPlayingState';
+  endModeFromRepeat,
+  nextEndMode,
+  projectPositionMs,
+  repeatFromEndMode,
+} from '../src/features/playback/playbackEvents';
+import {normalizeEndMode} from '../src/features/playback/useNowPlayingState';
+import {PlaybackSnapshot} from '../src/native/modules';
 
-describe('useNowPlayingState playback helpers', () => {
+const snapshot = (overrides: Partial<PlaybackSnapshot> = {}): PlaybackSnapshot => ({
+  isPlaying: true,
+  playWhenReady: true,
+  playbackState: 'ready',
+  positionMs: 10_000,
+  durationMs: 200_000,
+  capturedAtEpochMs: 1_000_000,
+  queueIndex: 0,
+  queueLength: 3,
+  currentUri: 'content://media/1',
+  repeatMode: 'off',
+  shuffle: false,
+  speed: 1,
+  ...overrides,
+});
+
+describe('playback helpers', () => {
   test('normalizes end mode safely', () => {
     expect(normalizeEndMode('stop')).toBe('stop');
     expect(normalizeEndMode('repeat_all')).toBe('repeat_all');
@@ -15,83 +32,30 @@ describe('useNowPlayingState playback helpers', () => {
     expect(normalizeEndMode(undefined)).toBe('stop');
   });
 
-  test('resolves manual next/previous edge boundaries', () => {
-    expect(resolveManualNextIndex(0, 3)).toBe(1);
-    expect(resolveManualNextIndex(2, 3)).toBeNull();
-
-    expect(resolveManualPreviousIndex(2)).toBe(1);
-    expect(resolveManualPreviousIndex(0)).toBeNull();
+  test('projects live position from the last native snapshot', () => {
+    expect(projectPositionMs(snapshot(), 1_002_500)).toBe(12_500);
+    expect(projectPositionMs(snapshot({isPlaying: false}), 1_090_000)).toBe(10_000);
+    expect(projectPositionMs(snapshot({speed: 2}), 1_001_000)).toBe(12_000);
   });
 
-  test('picks random next index without repeating current', () => {
-    const spy = jest.spyOn(Math, 'random').mockReturnValue(0.75);
-    expect(pickRandomNextIndex(0, 2)).toBe(1);
-    spy.mockRestore();
+  test('projection never runs past the end or backwards', () => {
+    expect(projectPositionMs(snapshot({positionMs: 199_000}), 1_010_000)).toBe(200_000);
+    expect(projectPositionMs(snapshot(), 999_000)).toBe(10_000);
   });
 
-  test('repeat one loops current track on completion', () => {
-    const resolution = resolveEndOfTrackTransition({
-      endMode: 'repeat_one',
-      randomEnabled: false,
-      queueLength: 5,
-      activeIndex: 3,
-      durationMs: 210000,
-    });
-
-    expect(resolution).toEqual({
-      nextPositionMs: 0,
-      nextIndex: null,
-      shouldStopPlayback: false,
-    });
+  test('maps native repeat modes to the UI end modes and back', () => {
+    expect(endModeFromRepeat('off')).toBe('stop');
+    expect(endModeFromRepeat('all')).toBe('repeat_all');
+    expect(endModeFromRepeat('one')).toBe('repeat_one');
+    expect(endModeFromRepeat(undefined)).toBe('stop');
+    expect(repeatFromEndMode('stop')).toBe('off');
+    expect(repeatFromEndMode('repeat_all')).toBe('all');
+    expect(repeatFromEndMode('repeat_one')).toBe('one');
   });
 
-  test('repeat all wraps at queue end', () => {
-    const resolution = resolveEndOfTrackTransition({
-      endMode: 'repeat_all',
-      randomEnabled: false,
-      queueLength: 4,
-      activeIndex: 3,
-      durationMs: 180000,
-    });
-
-    expect(resolution).toEqual({
-      nextPositionMs: 0,
-      nextIndex: 0,
-      shouldStopPlayback: false,
-    });
-  });
-
-  test('stop mode halts at end without next index', () => {
-    const resolution = resolveEndOfTrackTransition({
-      endMode: 'stop',
-      randomEnabled: false,
-      queueLength: 2,
-      activeIndex: 1,
-      durationMs: 90000,
-    });
-
-    expect(resolution).toEqual({
-      nextPositionMs: 90000,
-      nextIndex: null,
-      shouldStopPlayback: true,
-    });
-  });
-
-  test('random mode selects a new index when possible', () => {
-    const spy = jest.spyOn(Math, 'random').mockReturnValue(0.9);
-    const resolution = resolveEndOfTrackTransition({
-      endMode: 'stop',
-      randomEnabled: true,
-      queueLength: 3,
-      activeIndex: 0,
-      durationMs: 120000,
-    });
-
-    expect(resolution).toEqual({
-      nextPositionMs: 0,
-      nextIndex: 2,
-      shouldStopPlayback: false,
-    });
-    spy.mockRestore();
+  test('repeat button cycles stop -> all -> one -> stop', () => {
+    expect(nextEndMode('stop')).toBe('repeat_all');
+    expect(nextEndMode('repeat_all')).toBe('repeat_one');
+    expect(nextEndMode('repeat_one')).toBe('stop');
   });
 });

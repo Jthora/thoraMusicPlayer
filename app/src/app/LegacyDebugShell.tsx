@@ -13,6 +13,7 @@ import {useAudioPermission} from '../features/permissions/useAudioPermission';
 import {NowPlayingPanel} from '../features/playback/NowPlayingPanel';
 import {useNowPlayingState} from '../features/playback/useNowPlayingState';
 import {usePlaybackService} from '../features/playback/usePlaybackService';
+import {useLivePositionMs} from '../features/playback/playbackEvents';
 import {PlaylistImportPanel} from '../features/playlists/PlaylistImportPanel';
 import {UserPlaylistsPanel} from '../features/playlists/UserPlaylistsPanel';
 import {usePlaylistImport} from '../features/playlists/usePlaylistImport';
@@ -131,7 +132,7 @@ export function LegacyDebugShell() {
     isPlaying,
     endMode,
     randomEnabled,
-    positionMs,
+    clock: playbackClock,
     durationMs,
     seekStepMs,
     togglePlayPause,
@@ -143,8 +144,8 @@ export function LegacyDebugShell() {
   } = useNowPlayingState({
     queue: queueState.queue,
     activeIndex: queueState.activeIndex,
-    onSetActiveIndex: setAnchorByIndex,
   });
+  const positionMs = useLivePositionMs(playbackClock);
 
   const safeAreaStyle = useMemo(
     () => ({

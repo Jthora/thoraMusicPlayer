@@ -1,10 +1,11 @@
 import {useEffect, useState} from 'react';
 import {PermissionsAndroid, Platform} from 'react-native';
+import {useStableCallback} from '../../platform/hooks/useStableCallback';
 
 export function useAudioPermission() {
   const [permissionStatus, setPermissionStatus] = useState('Checking...');
 
-  const refreshAudioPermissionStatus = async () => {
+  const refreshAudioPermissionStatus = useStableCallback(async () => {
     if (Platform.OS !== 'android') {
       const status = 'Not required on this platform';
       setPermissionStatus(status);
@@ -17,13 +18,13 @@ export function useAudioPermission() {
     const status = isGranted ? 'Granted' : 'Not granted';
     setPermissionStatus(status);
     return status;
-  };
+  });
 
   useEffect(() => {
     void refreshAudioPermissionStatus();
-  }, []);
+  }, [refreshAudioPermissionStatus]);
 
-  const requestAudioPermission = async () => {
+  const requestAudioPermission = useStableCallback(async () => {
     if (Platform.OS !== 'android') {
       const status = 'Not required on this platform';
       setPermissionStatus(status);
@@ -36,7 +37,7 @@ export function useAudioPermission() {
     const status = result === PermissionsAndroid.RESULTS.GRANTED ? 'Granted' : 'Denied';
     setPermissionStatus(status);
     return status;
-  };
+  });
 
   return {
     permissionStatus,

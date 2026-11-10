@@ -7,6 +7,7 @@ import {
   mediaLibrary,
 } from '../../native/modules';
 import {kvStore} from '../../platform/storage/kvStore';
+import {useStableCallback} from '../../platform/hooks/useStableCallback';
 
 const MAX_PLAYLIST_NAME_LENGTH = 80;
 const MAX_QUERY_LENGTH = 256;
@@ -87,14 +88,14 @@ export function useUserPlaylists() {
     kvStore.setItem(SELECTED_PLAYLIST_STORAGE_KEY, String(selectedPlaylistId));
   }, [selectedPlaylistId]);
 
-  const nextRequestSeq = () => {
+  const nextRequestSeq = useStableCallback(() => {
     requestSeqRef.current += 1;
     return requestSeqRef.current;
-  };
+  });
 
   const isCurrentRequest = (requestSeq: number) => requestSeqRef.current == requestSeq;
 
-  const refreshPlaylists = async () => {
+  const refreshPlaylists = useStableCallback(async () => {
     if (!mediaLibrary) {
       setStatus('Media library module unavailable');
       return;
@@ -134,7 +135,7 @@ export function useUserPlaylists() {
     } catch (error) {
       setStatus(`Failed to load user playlists (${getErrorMessage(error)})`);
     }
-  };
+  });
 
   useEffect(() => {
     if (!selectionHydrated) {
@@ -142,9 +143,9 @@ export function useUserPlaylists() {
     }
 
     void refreshPlaylists();
-  }, [selectionHydrated]);
+  }, [selectionHydrated, refreshPlaylists]);
 
-  const createPlaylist = async (name: string): Promise<UserPlaylist | null> => {
+  const createPlaylist = useStableCallback(async (name: string): Promise<UserPlaylist | null> => {
     if (!mediaLibrary) {
       setStatus('Media library module unavailable');
       return null;
@@ -174,9 +175,9 @@ export function useUserPlaylists() {
     } finally {
       setIsMutating(false);
     }
-  };
+  });
 
-  const selectPlaylist = async (playlistId: number) => {
+  const selectPlaylist = useStableCallback(async (playlistId: number) => {
     if (!mediaLibrary) {
       setStatus('Media library module unavailable');
       return;
@@ -194,9 +195,9 @@ export function useUserPlaylists() {
     } catch (error) {
       setStatus(`Failed to load playlist entries (${getErrorMessage(error)})`);
     }
-  };
+  });
 
-  const searchTracks = async (query: string) => {
+  const searchTracks = useStableCallback(async (query: string) => {
     if (!mediaLibrary) {
       setStatus('Media library module unavailable');
       return;
@@ -215,9 +216,9 @@ export function useUserPlaylists() {
     } catch (error) {
       setStatus(`Search failed (${getErrorMessage(error)})`);
     }
-  };
+  });
 
-  const addTrack = async (track: MediaStoreTrack) => {
+  const addTrack = useStableCallback(async (track: MediaStoreTrack) => {
     if (!mediaLibrary || !selectedPlaylistId) {
       setStatus('Select a playlist first');
       return;
@@ -238,9 +239,9 @@ export function useUserPlaylists() {
     } finally {
       setIsMutating(false);
     }
-  };
+  });
 
-  const removeTrack = async (position: number) => {
+  const removeTrack = useStableCallback(async (position: number) => {
     if (!mediaLibrary || !selectedPlaylistId) {
       setStatus('Select a playlist first');
       return;
@@ -261,9 +262,9 @@ export function useUserPlaylists() {
     } finally {
       setIsMutating(false);
     }
-  };
+  });
 
-  const moveTrack = async (fromPosition: number, toPosition: number) => {
+  const moveTrack = useStableCallback(async (fromPosition: number, toPosition: number) => {
     if (!mediaLibrary || !selectedPlaylistId) {
       setStatus('Select a playlist first');
       return;
@@ -288,7 +289,7 @@ export function useUserPlaylists() {
     } finally {
       setIsMutating(false);
     }
-  };
+  });
 
   return {
     status,

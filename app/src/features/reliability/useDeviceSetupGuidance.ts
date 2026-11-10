@@ -15,6 +15,7 @@ import {deriveVerificationReadiness} from './readinessStatus';
 import {buildRetestSummaryMessage} from './retestSummary';
 import {buildSetupDeltaMessage} from './setupDelta';
 import {buildValidationBundleText} from './validationBundle';
+import {useStableCallback} from '../../platform/hooks/useStableCallback';
 
 const initialStatus: OemSetupStatus = {
   manufacturer: '',
@@ -61,15 +62,15 @@ export function useDeviceSetupGuidance() {
   const [setupStatusRefreshedAtSec, setSetupStatusRefreshedAtSec] = useState(0);
   const verificationReadiness = deriveVerificationReadiness(checklistItems, idleTestSessions, snapshots);
 
-  const setOperationStatus = (message: string) => {
+  const setOperationStatus = useStableCallback((message: string) => {
     setStatusText(message);
     setDiagnosticText('');
-  };
+  });
 
-  const setFailureStatus = (message: string, error: unknown) => {
+  const setFailureStatus = useStableCallback((message: string, error: unknown) => {
     setStatusText(message);
     setDiagnosticText(`${message} (${getErrorMessage(error)})`);
-  };
+  });
 
   const dataFreshness = useMemo<FreshnessState>(() => {
     const nowSec = Math.floor(Date.now() / 1000);
@@ -120,7 +121,7 @@ export function useDeviceSetupGuidance() {
     };
   }, [checklistItems, events, idleTestSessions, setupStatusRefreshedAtSec, snapshots, validationReport?.generatedAtSec]);
 
-  const refreshSetupStatus = async () => {
+  const refreshSetupStatus = useStableCallback(async () => {
     if (!oemSetup) {
       setOperationStatus('OEM setup module unavailable');
       return;
@@ -134,9 +135,9 @@ export function useDeviceSetupGuidance() {
     } catch (error) {
       setFailureStatus('Failed to read device setup status', error);
     }
-  };
+  });
 
-  const refreshEvents = async () => {
+  const refreshEvents = useStableCallback(async () => {
     if (!oemSetup) {
       return;
     }
@@ -147,9 +148,9 @@ export function useDeviceSetupGuidance() {
     } catch (error) {
       setFailureStatus('Failed to load reliability events', error);
     }
-  };
+  });
 
-  const refreshSnapshots = async () => {
+  const refreshSnapshots = useStableCallback(async () => {
     if (!oemSetup) {
       return;
     }
@@ -160,9 +161,9 @@ export function useDeviceSetupGuidance() {
     } catch (error) {
       setFailureStatus('Failed to load setup validation snapshots', error);
     }
-  };
+  });
 
-  const refreshChecklist = async () => {
+  const refreshChecklist = useStableCallback(async () => {
     if (!reliabilityChecklist) {
       return;
     }
@@ -173,17 +174,9 @@ export function useDeviceSetupGuidance() {
     } catch (error) {
       setFailureStatus('Failed to load reliability checklist', error);
     }
-  };
+  });
 
-  useEffect(() => {
-    void refreshSetupStatus();
-    void refreshEvents();
-    void refreshSnapshots();
-    void refreshIdleTestSessions();
-    void refreshChecklist();
-  }, []);
-
-  const refreshIdleTestSessions = async () => {
+  const refreshIdleTestSessions = useStableCallback(async () => {
     if (!oemSetup) {
       return;
     }
@@ -194,9 +187,17 @@ export function useDeviceSetupGuidance() {
     } catch (error) {
       setFailureStatus('Failed to load idle test sessions', error);
     }
-  };
+  });
 
-  const openBatteryOptimizationSettings = async () => {
+  useEffect(() => {
+    void refreshSetupStatus();
+    void refreshEvents();
+    void refreshSnapshots();
+    void refreshIdleTestSessions();
+    void refreshChecklist();
+  }, [refreshSetupStatus, refreshEvents, refreshSnapshots, refreshIdleTestSessions, refreshChecklist]);
+
+  const openBatteryOptimizationSettings = useStableCallback(async () => {
     if (!oemSetup) {
       setOperationStatus('OEM setup module unavailable');
       return;
@@ -210,9 +211,9 @@ export function useDeviceSetupGuidance() {
     } catch (error) {
       setFailureStatus('Failed to open battery optimization settings', error);
     }
-  };
+  });
 
-  const openAutostartSettings = async () => {
+  const openAutostartSettings = useStableCallback(async () => {
     if (!oemSetup) {
       setOperationStatus('OEM setup module unavailable');
       return;
@@ -226,9 +227,9 @@ export function useDeviceSetupGuidance() {
     } catch (error) {
       setFailureStatus('Failed to open autostart/background settings', error);
     }
-  };
+  });
 
-  const recordEvent = async (eventCode: string, message: string) => {
+  const recordEvent = useStableCallback(async (eventCode: string, message: string) => {
     if (!oemSetup) {
       setOperationStatus('OEM setup module unavailable');
       return;
@@ -241,9 +242,9 @@ export function useDeviceSetupGuidance() {
     } catch (error) {
       setFailureStatus('Failed to record reliability event', error);
     }
-  };
+  });
 
-  const captureSnapshot = async (label: string) => {
+  const captureSnapshot = useStableCallback(async (label: string) => {
     if (!oemSetup) {
       setOperationStatus('OEM setup module unavailable');
       return;
@@ -257,9 +258,9 @@ export function useDeviceSetupGuidance() {
     } catch (error) {
       setFailureStatus('Failed to capture setup snapshot', error);
     }
-  };
+  });
 
-  const refreshValidationReport = async () => {
+  const refreshValidationReport = useStableCallback(async () => {
     if (!oemSetup) {
       setOperationStatus('OEM setup module unavailable');
       return;
@@ -272,9 +273,9 @@ export function useDeviceSetupGuidance() {
     } catch (error) {
       setFailureStatus('Failed to generate validation report', error);
     }
-  };
+  });
 
-  const startIdleTestSession = async (label: string, expectedMinutes: number) => {
+  const startIdleTestSession = useStableCallback(async (label: string, expectedMinutes: number) => {
     if (!oemSetup) {
       setOperationStatus('OEM setup module unavailable');
       return;
@@ -288,9 +289,9 @@ export function useDeviceSetupGuidance() {
     } catch (error) {
       setFailureStatus('Failed to start idle test session', error);
     }
-  };
+  });
 
-  const completeIdleTestSession = async (sessionId: string, outcome: string, notes: string) => {
+  const completeIdleTestSession = useStableCallback(async (sessionId: string, outcome: string, notes: string) => {
     if (!oemSetup) {
       setOperationStatus('OEM setup module unavailable');
       return;
@@ -304,9 +305,9 @@ export function useDeviceSetupGuidance() {
     } catch (error) {
       setFailureStatus('Failed to complete idle test session', error);
     }
-  };
+  });
 
-  const setChecklistItem = async (key: string, passed: boolean, notes: string) => {
+  const setChecklistItem = useStableCallback(async (key: string, passed: boolean, notes: string) => {
     if (!reliabilityChecklist) {
       setOperationStatus('Checklist module unavailable');
       return;
@@ -319,9 +320,9 @@ export function useDeviceSetupGuidance() {
     } catch (error) {
       setFailureStatus('Failed to update reliability checklist', error);
     }
-  };
+  });
 
-  const recordRetestRunSummary = async (notes: string) => {
+  const recordRetestRunSummary = useStableCallback(async (notes: string) => {
     if (!oemSetup) {
       setOperationStatus('OEM setup module unavailable');
       return;
@@ -337,9 +338,9 @@ export function useDeviceSetupGuidance() {
     } catch (error) {
       setFailureStatus('Failed to record retest summary', error);
     }
-  };
+  });
 
-  const shareValidationReport = async () => {
+  const shareValidationReport = useStableCallback(async () => {
     const text = validationReport?.reportText?.trim() ?? '';
     if (!text) {
       setOperationStatus('No report available to share');
@@ -352,9 +353,9 @@ export function useDeviceSetupGuidance() {
     } catch (error) {
       setFailureStatus('Failed to share validation report', error);
     }
-  };
+  });
 
-  const evaluateSetupDelta = async () => {
+  const evaluateSetupDelta = useStableCallback(async () => {
     if (!oemSetup) {
       setOperationStatus('OEM setup module unavailable');
       return;
@@ -368,9 +369,9 @@ export function useDeviceSetupGuidance() {
     } catch (error) {
       setFailureStatus('Failed to evaluate setup delta', error);
     }
-  };
+  });
 
-  const shareValidationBundle = async () => {
+  const shareValidationBundle = useStableCallback(async () => {
     if (!oemSetup) {
       setOperationStatus('OEM setup module unavailable');
       return;
@@ -391,7 +392,7 @@ export function useDeviceSetupGuidance() {
     } catch (error) {
       setFailureStatus('Failed to share validation bundle', error);
     }
-  };
+  });
 
   return {
     statusText,

@@ -62,10 +62,8 @@ export function NowPlayingPanel(props: NowPlayingPanelProps) {
     onToggleRandomEnabled,
     queueToolsOpen,
     onToggleQueueTools,
-    seekStepMs,
   } = props;
 
-  const progressRatio = durationMs > 0 ? Math.min(1, positionMs / durationMs) : 0;
   const [progressWidth, setProgressWidth] = useState(0);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [scrubPreviewMs, setScrubPreviewMs] = useState<number | null>(null);

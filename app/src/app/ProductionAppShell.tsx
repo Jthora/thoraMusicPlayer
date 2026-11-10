@@ -1,4 +1,4 @@
-import {memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState} from 'react';
+import {Activity, ReactNode, memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState} from 'react';
 import {ActivityIndicator, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {FlashList} from '@shopify/flash-list';
@@ -16,6 +16,7 @@ import {useAudioPermission} from '../features/permissions/useAudioPermission';
 import {NowPlayingPanel} from '../features/playback/NowPlayingPanel';
 import {useNowPlayingState} from '../features/playback/useNowPlayingState';
 import {usePlaybackService} from '../features/playback/usePlaybackService';
+import {LivePosition} from '../features/playback/LivePosition';
 import {PlaylistImportPanel} from '../features/playlists/PlaylistImportPanel';
 import {usePlaylistImport} from '../features/playlists/usePlaylistImport';
 import {useUserPlaylists} from '../features/playlists/useUserPlaylists';
@@ -26,7 +27,7 @@ import {DeviceSetupPanel} from '../features/reliability/DeviceSetupPanel';
 import {useDeviceSetupGuidance} from '../features/reliability/useDeviceSetupGuidance';
 import {FolderGrantsPanel} from '../features/storage/FolderGrantsPanel';
 import {useFolderGrants} from '../features/storage/useFolderGrants';
-import {MediaStoreTrack} from '../native/modules';
+import {MediaStoreTrack, playbackControl} from '../native/modules';
 import {AppButton} from '../ui/components/AppButton';
 import {IconTabBar} from '../ui/components/IconTabBar';
 import {MiniNowPlayingDock} from '../ui/components/MiniNowPlayingDock';
@@ -35,6 +36,7 @@ import {StatusChip} from '../ui/components/StatusChip';
 import {colors, radii, spacing} from '../ui/theme';
 import {baseThemePresets, fontOptions, highlightThemePresets, ThemeColors, useTheme} from '../ui/themeRuntime';
 import {kvStore} from '../platform/storage/kvStore';
+import {useStableCallback} from '../platform/hooks/useStableCallback';
 import {AnySupportedTabKey, resolveAppTabKey} from './tabCompatibility';
 
 type TabKey = 'home' | 'search' | 'yourLibrary' | 'create' | 'settings' | 'nowplaying';
@@ -716,6 +718,11 @@ type YourLibraryTabSceneProps = {
   folderGroups: FolderGroupRow[];
   playlists: ReturnType<typeof useUserPlaylists>['playlists'];
   onSelectPlaylist: (playlistId: number) => void;
+  openPlaylistName: string | null;
+  openPlaylistSongs: MediaStoreTrack[];
+  isOpenPlaylistLoading: boolean;
+  onClosePlaylist: () => void;
+  onShufflePlaylist: () => void;
 };
 
 const LIBRARY_VIEW_ITEMS: ReadonlyArray<{key: LibraryView; label: string}> = [
@@ -764,6 +771,11 @@ const YourLibraryTabScene = memo(function YourLibraryTabScene({
   folderGroups,
   playlists,
   onSelectPlaylist,
+  openPlaylistName,
+  openPlaylistSongs,
+  isOpenPlaylistLoading,
+  onClosePlaylist,
+  onShufflePlaylist,
 }: YourLibraryTabSceneProps) {
   return (
     <View style={styles.libraryScene}>
@@ -1024,7 +1036,62 @@ const YourLibraryTabScene = memo(function YourLibraryTabScene({
         </SectionCard>
       )}
 
-      {libraryView === 'playlists' && (
+      {libraryView === 'playlists' && openPlaylistName !== null && (
+        <SectionCard
+          title="Playlist"
+          titleRight={
+            <Pressable
+              onPress={onClosePlaylist}
+              style={({pressed}) => [styles.libraryHeaderBackButton, pressed ? styles.libraryPillPressed : null]}>
+              <Text style={styles.libraryHeaderBackButtonLabel}>← back</Text>
+            </Pressable>
+          }>
+          <Text style={styles.librarySelectionName}>{openPlaylistName}</Text>
+          <Text style={styles.meta}>
+            {isOpenPlaylistLoading ? 'Loading…' : `${openPlaylistSongs.length} song${openPlaylistSongs.length === 1 ? '' : 's'}`}
+          </Text>
+          {openPlaylistSongs.length > 0 ? (
+            <View style={styles.libraryTopPillRow}>
+              <Pressable
+                accessibilityRole="button"
+                testID="playlist-play-all"
+                onPress={() => onPlayTrackFromList(openPlaylistSongs, openPlaylistSongs[0].uri, `playlist:${openPlaylistName}`)}
+                style={({pressed}) => [styles.libraryPill, styles.libraryPillActive, pressed ? styles.libraryPillPressed : null]}>
+                <Text style={[styles.libraryPillLabel, styles.libraryPillLabelActive]}>▶ PLAY ALL</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                testID="playlist-shuffle"
+                onPress={onShufflePlaylist}
+                style={({pressed}) => [styles.libraryPill, styles.libraryPillInactive, pressed ? styles.libraryPillPressed : null]}>
+                <Text style={[styles.libraryPillLabel, styles.libraryPillLabelInactive]}>↭ SHUFFLE</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          {!isOpenPlaylistLoading && openPlaylistSongs.length === 0 ? (
+            <Text style={styles.meta}>This playlist has no songs that are in the library.</Text>
+          ) : (
+            <FlashList
+              data={openPlaylistSongs}
+              keyExtractor={(item, index) => `library-playlist-song-${item.uri}-${String(index)}`}
+              renderItem={({item}) => (
+                <CompactSongRow
+                  track={item}
+                  isCurrent={currentTrackUri === item.uri}
+                  isPlaying={isPlaying}
+                  onPlay={trackUri => onPlayTrackFromList(openPlaylistSongs, trackUri, `playlist:${openPlaylistName}`)}
+                />
+              )}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator={false}
+              style={styles.virtualizedListTall}
+              contentContainerStyle={styles.virtualizedListContainer}
+            />
+          )}
+        </SectionCard>
+      )}
+
+      {libraryView === 'playlists' && openPlaylistName === null && (
         <SectionCard title="Playlists">
           {playlists.length === 0 ? (
             <Text style={styles.meta}>No playlists yet.</Text>
@@ -1060,6 +1127,29 @@ const YourLibraryTabScene = memo(function YourLibraryTabScene({
   );
 });
 
+/**
+ * A tab's content. It mounts on the tab's first visit and then stays mounted: switching tabs flips
+ * React's <Activity> between visible and hidden instead of destroying and rebuilding the screen
+ * (which made every tab switch stutter). Hidden tabs keep their state and native views
+ * (display: none), pause their effects, and re-render only at idle priority.
+ */
+function TabPane({
+  tab,
+  activeTab,
+  visitedTabs,
+  children,
+}: {
+  tab: string;
+  activeTab: string;
+  visitedTabs: ReadonlySet<string>;
+  children: ReactNode;
+}) {
+  if (!visitedTabs.has(tab)) {
+    return null;
+  }
+  return <Activity mode={tab === activeTab ? 'visible' : 'hidden'}>{children}</Activity>;
+}
+
 export function ProductionAppShell() {
   const safeAreaInsets = useSafeAreaInsets();
   const {
@@ -1075,6 +1165,10 @@ export function ProductionAppShell() {
   } = useTheme();
   const styles = useMemo(() => createStyles(themeColors, fontFamily), [fontFamily, themeColors]);
   const [activeTab, setActiveTab] = useState<TabKey>('home');
+  // Tabs stay mounted after their first visit (see TabPane); recorded in a ref so it costs no render.
+  const visitedTabsRef = useRef(new Set<string>());
+  visitedTabsRef.current.add(activeTab);
+  const visitedTabs = visitedTabsRef.current;
   const [libraryView, setLibraryView] = useState<LibraryView>('allSongs');
   const [allSongsSortMode, setAllSongsSortMode] = useState<AllSongsSortMode>('name');
   const [homeFeedTab, setHomeFeedTab] = useState<HomeFeedTab>('recentlyAdded');
@@ -1099,7 +1193,6 @@ export function ProductionAppShell() {
   const libraryViewRefreshAtMsRef = useRef(0);
   const libraryBootstrapInFlightRef = useRef(false);
   const autoPermissionPromptedRef = useRef(false);
-  const mediaSyncAfterGrantDoneRef = useRef(false);
 
   const {
     permissionStatus,
@@ -1193,13 +1286,6 @@ export function ProductionAppShell() {
     removeFromQueue,
   } = useFolderQueue();
   const {
-    status: playlistImportStatus,
-    latestImport,
-    importPlaylist,
-    refreshLatestImport,
-    retryLatestImport,
-  } = usePlaylistImport();
-  const {
     playlists,
     selectedPlaylistId,
     searchResults: userPlaylistSearchResults,
@@ -1208,9 +1294,39 @@ export function ProductionAppShell() {
     selectPlaylist,
     searchTracks,
     addTrack,
+    entries: selectedPlaylistEntries,
   } = useUserPlaylists();
+  // The playlist opened in LIBRARY -> PLAYLISTS (separate from the CREATE tab's "add to" target).
+  const [openPlaylistId, setOpenPlaylistId] = useState<number | null>(null);
+  const {
+    status: playlistImportStatus,
+    latestImport,
+    importPlaylist,
+    refreshLatestImport,
+    retryLatestImport,
+  } = usePlaylistImport({onImported: refreshPlaylists});
 
   const selectedPlaylist = playlists.find(item => item.id === selectedPlaylistId) ?? null;
+  const openPlaylist = openPlaylistId === null ? null : playlists.find(item => item.id === openPlaylistId) ?? null;
+  const isOpenPlaylistLoading = openPlaylistId !== null && selectedPlaylistId !== openPlaylistId;
+  const openPlaylistSongs = useMemo<MediaStoreTrack[]>(
+    () =>
+      openPlaylistId === null || selectedPlaylistId !== openPlaylistId
+        ? []
+        : selectedPlaylistEntries.map(entry => ({
+            uri: entry.uri,
+            title: entry.title,
+            artist: entry.artist,
+            album: entry.album,
+            durationMs: entry.durationMs,
+            displayName: entry.displayName,
+            relativePath: entry.relativePath,
+            mimeType: '',
+            sizeBytes: 0,
+            dateModifiedEpochSeconds: 0,
+          })),
+    [openPlaylistId, selectedPlaylistId, selectedPlaylistEntries],
+  );
 
   const handleCreatePlaylistFromCreatePage = useCallback(async () => {
     const trimmed = createDraftName.trim();
@@ -1265,7 +1381,7 @@ export function ProductionAppShell() {
     isPlaying,
     endMode,
     randomEnabled,
-    positionMs,
+    clock: playbackClock,
     durationMs,
     seekStepMs,
     togglePlayPause,
@@ -1277,7 +1393,6 @@ export function ProductionAppShell() {
   } = useNowPlayingState({
     queue: queueState.queue,
     activeIndex: queueState.activeIndex,
-    onSetActiveIndex: setAnchorByIndex,
   });
   const currentTrackUri = currentTrack?.uri ?? null;
 
@@ -1290,6 +1405,9 @@ export function ProductionAppShell() {
       libraryBootstrapInFlightRef.current = true;
       try {
         let currentPermissionStatus = permissionStatus;
+        if (currentPermissionStatus === 'Checking...' && trigger === 'auto') {
+          return false; // re-runs once the initial permission check resolves
+        }
         if (currentPermissionStatus !== 'Granted') {
           const shouldPromptPermission = trigger === 'manual' || !autoPermissionPromptedRef.current;
           if (!shouldPromptPermission) {
@@ -1306,23 +1424,15 @@ export function ProductionAppShell() {
           }
         }
 
-        await refreshFolderGrants();
-        await runIncrementalMediaSync();
-
+        // Syncing is owned by useBackgroundSyncOrchestrator (it reacts to the permission change);
+        // here we only show whatever is already indexed.
         await browseSongs();
         return true;
       } finally {
         libraryBootstrapInFlightRef.current = false;
       }
     },
-    [
-      browseSongs,
-      permissionStatus,
-      refreshAudioPermissionStatus,
-      refreshFolderGrants,
-      requestAudioPermission,
-      runIncrementalMediaSync,
-    ],
+    [browseSongs, permissionStatus, refreshAudioPermissionStatus, requestAudioPermission],
   );
 
   const needsQuickStart = permissionStatus !== 'Granted';
@@ -1444,12 +1554,27 @@ export function ProductionAppShell() {
   }, []);
 
   const handleSelectPlaylistFromLibrary = useCallback((playlistId: number) => {
+    setOpenPlaylistId(playlistId);
     void selectPlaylist(playlistId);
   }, [selectPlaylist]);
+
+  const handleClosePlaylist = useCallback(() => setOpenPlaylistId(null), []);
 
   const handlePlayTrackFromList = useCallback((trackList: MediaStoreTrack[], trackUri: string, sourceLabel: string) => {
     void playTrackFromList(trackList, trackUri, sourceLabel);
   }, [playTrackFromList]);
+
+  const openPlaylistName = openPlaylist?.name ?? '';
+  const handleShufflePlaylist = useCallback(() => {
+    if (openPlaylistSongs.length === 0) {
+      return;
+    }
+    const start = openPlaylistSongs[Math.floor(Math.random() * openPlaylistSongs.length)];
+    void (async () => {
+      await playbackControl?.setShuffle(true).catch(() => false);
+      await playTrackFromList(openPlaylistSongs, start.uri, `playlist:${openPlaylistName}`);
+    })();
+  }, [openPlaylistSongs, openPlaylistName, playTrackFromList]);
 
   const handleCreatePlaylistFromCreatePagePress = useCallback(() => {
     void handleCreatePlaylistFromCreatePage();
@@ -1702,22 +1827,6 @@ export function ProductionAppShell() {
   }, [activeTab, browseAlbums, browseArtists, browseSongs]);
 
   useEffect(() => {
-    if (permissionStatus !== 'Granted' || mediaSyncAfterGrantDoneRef.current) {
-      return;
-    }
-
-    mediaSyncAfterGrantDoneRef.current = true;
-    const task = runWhenIdle(() => {
-      void runIncrementalMediaSync()
-        .then(() => browseSongs())
-        .catch(() => {
-        });
-    });
-
-    return () => task.cancel();
-  }, [permissionStatus, browseSongs, runIncrementalMediaSync]);
-
-  useEffect(() => {
     if (syncRevision <= 0 || permissionStatus !== 'Granted') {
       return;
     }
@@ -1733,9 +1842,9 @@ export function ProductionAppShell() {
     });
 
     return () => task.cancel();
-  }, [syncRevision, permissionStatus]);
+  }, [syncRevision, permissionStatus, browseSongs, browseAlbums, browseArtists, refreshStats]);
 
-  const applyCustomThemeColors = () => {
+  const applyCustomThemeColors = useStableCallback(() => {
     const nextBackgroundBase = customBackgroundBase.trim();
     const nextTextPrimary = customTextPrimary.trim();
     const nextAccentPrimary = customAccentPrimary.trim();
@@ -1752,7 +1861,7 @@ export function ProductionAppShell() {
       accentPrimary: nextAccentPrimary,
     });
     setThemeEditorStatus('Custom theme colors applied.');
-  };
+  });
 
   const settingsScene = useMemo(() => (
     <>
@@ -2134,8 +2243,8 @@ export function ProductionAppShell() {
         nestedScrollEnabled={activeTab !== 'yourLibrary'}
         showsVerticalScrollIndicator={activeTab !== 'yourLibrary'}
         scrollEnabled={activeTab !== 'yourLibrary'}>
-        <Animated.View style={[styles.tabContent, {opacity: contentFade}]} key={activeTab as string}>
-        {activeTab === 'home' && (
+        <Animated.View style={[styles.tabContent, {opacity: contentFade}]}>
+        <TabPane tab="home" activeTab={activeTab} visitedTabs={visitedTabs}>
           <HomeTabScene
             styles={styles}
             loadingIndicatorColor={themeColors.accentPrimary}
@@ -2158,9 +2267,9 @@ export function ProductionAppShell() {
             needsQuickStart={needsQuickStart}
             miniPlayerStatus={miniPlayerStatus}
           />
-        )}
+        </TabPane>
 
-        {activeTab === 'search' && (
+        <TabPane tab="search" activeTab={activeTab} visitedTabs={visitedTabs}>
           <SearchTabScene
             browseStatus={browseStatus}
             browseSearchResults={browseSearchResults}
@@ -2180,9 +2289,9 @@ export function ProductionAppShell() {
             onOpenPlaylists={handleOpenPlaylistsFromSearch}
             hasQuickAddTarget={selectedPlaylistId !== null}
           />
-        )}
+        </TabPane>
 
-        {activeTab === 'yourLibrary' && (
+        <TabPane tab="yourLibrary" activeTab={activeTab} visitedTabs={visitedTabs}>
           <YourLibraryTabScene
             styles={styles}
             loadingIndicatorColor={themeColors.accentPrimary}
@@ -2212,10 +2321,15 @@ export function ProductionAppShell() {
             folderGroups={folderGroups}
             playlists={playlists}
             onSelectPlaylist={handleSelectPlaylistFromLibrary}
+            openPlaylistName={openPlaylist?.name ?? null}
+            openPlaylistSongs={openPlaylistSongs}
+            isOpenPlaylistLoading={isOpenPlaylistLoading}
+            onClosePlaylist={handleClosePlaylist}
+            onShufflePlaylist={handleShufflePlaylist}
           />
-        )}
+        </TabPane>
 
-        {activeTab === 'create' && (
+        <TabPane tab="create" activeTab={activeTab} visitedTabs={visitedTabs}>
           <CreateTabScene
             styles={styles}
             playlistsCount={playlists.length}
@@ -2235,27 +2349,31 @@ export function ProductionAppShell() {
             onAddToExisting={handleAddToExistingFromCreate}
             onAddToNew={handleAddToNewFromCreate}
           />
-        )}
+        </TabPane>
 
-        {activeTab === 'nowplaying' && (
+        <TabPane tab="nowplaying" activeTab={activeTab} visitedTabs={visitedTabs}>
           <>
-            <NowPlayingPanel
-              currentTrack={currentTrack}
-              isPlaying={isPlaying}
-              endMode={endMode}
-              randomEnabled={randomEnabled}
-              positionMs={positionMs}
-              durationMs={durationMs}
-              onTogglePlayPause={togglePlayPause}
-              onNext={skipNext}
-              onPrevious={skipPrevious}
-              onSeekBy={seekBy}
-              onCycleEndMode={cycleEndMode}
-              onToggleRandomEnabled={toggleRandomEnabled}
-              queueToolsOpen={showQueueTools}
-              onToggleQueueTools={() => setShowQueueTools(current => !current)}
-              seekStepMs={seekStepMs}
-            />
+            <LivePosition clock={playbackClock}>
+              {positionMs => (
+                <NowPlayingPanel
+                  currentTrack={currentTrack}
+                  isPlaying={isPlaying}
+                  endMode={endMode}
+                  randomEnabled={randomEnabled}
+                  positionMs={positionMs}
+                  durationMs={durationMs}
+                  onTogglePlayPause={togglePlayPause}
+                  onNext={skipNext}
+                  onPrevious={skipPrevious}
+                  onSeekBy={seekBy}
+                  onCycleEndMode={cycleEndMode}
+                  onToggleRandomEnabled={toggleRandomEnabled}
+                  queueToolsOpen={showQueueTools}
+                  onToggleQueueTools={() => setShowQueueTools(current => !current)}
+                  seekStepMs={seekStepMs}
+                />
+              )}
+            </LivePosition>
             {showQueueTools && (
               <>
                 <View style={styles.statusRow}>
@@ -2285,28 +2403,32 @@ export function ProductionAppShell() {
               </>
             )}
           </>
-        )}
+        </TabPane>
 
-        {activeTab === 'settings' && settingsScene}
+        <TabPane tab="settings" activeTab={activeTab} visitedTabs={visitedTabs}>{settingsScene}</TabPane>
         </Animated.View>
       </ScrollView>
 
-      <MiniNowPlayingDock
-        currentTrack={currentTrack}
-        isPlaying={isPlaying}
-        positionMs={positionMs}
-        durationMs={durationMs}
-        endMode={endMode}
-        randomEnabled={randomEnabled}
-        onSeekBy={seekBy}
-        onNext={skipNext}
-        onPrevious={skipPrevious}
-        onTogglePlayPause={togglePlayPause}
-        onCycleEndMode={cycleEndMode}
-        onToggleRandomEnabled={toggleRandomEnabled}
-        onOpenNowPlaying={() => navigateToTab('nowplaying')}
-        onReportError={setMiniPlayerStatus}
-      />
+      <LivePosition clock={playbackClock}>
+        {positionMs => (
+          <MiniNowPlayingDock
+            currentTrack={currentTrack}
+            isPlaying={isPlaying}
+            positionMs={positionMs}
+            durationMs={durationMs}
+            endMode={endMode}
+            randomEnabled={randomEnabled}
+            onSeekBy={seekBy}
+            onNext={skipNext}
+            onPrevious={skipPrevious}
+            onTogglePlayPause={togglePlayPause}
+            onCycleEndMode={cycleEndMode}
+            onToggleRandomEnabled={toggleRandomEnabled}
+            onOpenNowPlaying={() => navigateToTab('nowplaying')}
+            onReportError={setMiniPlayerStatus}
+          />
+        )}
+      </LivePosition>
 
       <IconTabBar tabs={TAB_ORDER} activeTab={activeTab} onSelect={navigateToTab} />
     </View>

@@ -113,6 +113,9 @@ export type PlaylistImportResult = {
   unsupportedCount: number;
   importedAtSec: number;
   diagnostics: PlaylistEntryDiagnostic[];
+  /** The playlist created or refreshed by the import; null when nothing matched. */
+  playlistId?: number | null;
+  playlistName?: string | null;
 };
 
 export type UserPlaylist = {
@@ -242,14 +245,24 @@ export type IdleTestSession = {
   notes: string;
 };
 
-export type PlaybackRuntimeState = {
+export type PlaybackRepeatMode = 'off' | 'all' | 'one';
+
+/** Emitted by the native player (Media3) on every relevant change; also returned by getPlaybackState. */
+export type PlaybackSnapshot = {
   isPlaying: boolean;
-  lastReason: string;
-  updatedAtSec: number;
-  queueLength: number;
-  queueIndex: number;
+  playWhenReady: boolean;
+  playbackState: 'idle' | 'buffering' | 'ready' | 'ended';
   positionMs: number;
   durationMs: number;
+  /** Device wall clock when positionMs was sampled; JS projects the live position from it. */
+  capturedAtEpochMs: number;
+  queueIndex: number;
+  queueLength: number;
+  currentUri: string | null;
+  repeatMode: PlaybackRepeatMode;
+  shuffle: boolean;
+  speed: number;
+  error?: string | null;
 };
 
 export type PlaybackModeState = {
@@ -267,33 +280,45 @@ export type TrackPlayStats = {
 
 export type PlaybackEventType = 'PLAY_STARTED' | 'PLAY_COMPLETED' | 'PLAY_SKIPPED' | 'PLAY_PAUSED';
 
-export type PlaybackQueueTrack = {
-  uri: string;
-  title: string;
-  artist: string;
-  album: string;
-  displayName: string;
-  durationMs: number;
-};
+export const PLAYBACK_EVENTS = {
+  state: 'ThoraPlaybackState',
+  queue: 'ThoraQueueChanged',
+  error: 'ThoraPlayerError',
+} as const;
 
+export type PlayerErrorEvent = {code: string; message: string; uri: string | null; queueIndex: number};
+
+/** Native owner of playback (PlaybackService + Media3). JS mirrors its state from PLAYBACK_EVENTS. */
 type PlaybackControlModule = {
   startPlaybackService: () => Promise<boolean>;
   stopPlaybackService: () => Promise<boolean>;
   play: () => Promise<boolean>;
   pause: () => Promise<boolean>;
+  togglePlayPause: () => Promise<boolean>;
   next: () => Promise<boolean>;
   previous: () => Promise<boolean>;
-  setQueueTracks: (tracks: PlaybackQueueTrack[]) => Promise<boolean>;
-  setQueueState: (queueLength: number, queueIndex: number) => Promise<boolean>;
-  setPlaybackProgress: (positionMs: number, durationMs: number) => Promise<boolean>;
-  getPlaybackState: () => Promise<PlaybackRuntimeState>;
+  seekTo: (positionMs: number) => Promise<boolean>;
+  skipTo: (index: number) => Promise<boolean>;
+  setQueue: (tracks: MediaStoreTrack[], startIndex: number, startPositionMs: number, playWhenReady: boolean) => Promise<boolean>;
+  insertQueueItems: (index: number, tracks: MediaStoreTrack[]) => Promise<boolean>;
+  moveQueueItem: (fromIndex: number, toIndex: number) => Promise<boolean>;
+  removeQueueItem: (index: number) => Promise<boolean>;
+  clearQueue: () => Promise<boolean>;
+  setRepeatMode: (mode: PlaybackRepeatMode) => Promise<boolean>;
+  setShuffle: (enabled: boolean) => Promise<boolean>;
   setPlaybackModes: (endMode: 'stop' | 'repeat_all' | 'repeat_one', randomEnabled: boolean) => Promise<boolean>;
   getPlaybackModes: () => Promise<PlaybackModeState>;
+  getPlaybackState: () => Promise<PlaybackSnapshot>;
+  getQueue: () => Promise<MediaStoreTrack[]>;
+  addListener: (eventName: string) => void;
+  removeListeners: (count: number) => void;
 };
 
 type StorageAccessModule = {
   pickFolderTree: () => Promise<FolderGrant>;
   pickPlaylistFile: () => Promise<PlaylistFileGrant>;
+  /** Multi-select picker for m3u/m3u8/pls/xspf; grants are temporary (import right away). */
+  pickPlaylistFiles?: () => Promise<PlaylistFileGrant[]>;
   getFolderGrants: () => Promise<FolderGrant[]>;
   cleanupRevokedFolderGrants: () => Promise<number>;
   removeFolderGrant: (uri: string) => Promise<boolean>;
