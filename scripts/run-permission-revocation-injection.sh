@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ANDROID_DIR="$ROOT_DIR/app/android"
 ARTIFACT_DIR="$ROOT_DIR/app/android/app/build/reports/permission-revocation-injection"
-PACKAGE_NAME="com.androidmusicplayerapp"
-ACTIVITY_NAME="com.androidmusicplayerapp/.MainActivity"
+PACKAGE_NAME="com.thoraplayer"
+ACTIVITY_NAME="com.thoraplayer/.MainActivity"
 
 mkdir -p "$ARTIFACT_DIR"
 
@@ -75,13 +75,13 @@ def relaunch() -> None:
 # Baseline: ensure permission granted and app is healthy.
 sh(f'adb shell pm grant {PACKAGE_NAME} android.permission.READ_MEDIA_AUDIO')
 relaunch()
-require_contains('Android Music Player')
+require_contains("Tho'ra Player")
 require_contains('READ_MEDIA_AUDIO: Granted')
 
 # Failure injection: revoke permission and confirm app remains responsive with not-granted state.
 sh(f'adb shell pm revoke {PACKAGE_NAME} android.permission.READ_MEDIA_AUDIO')
 relaunch()
-require_contains('Android Music Player')
+require_contains("Tho'ra Player")
 require_contains('READ_MEDIA_AUDIO: Not granted')
 
 # Recovery: grant permission again and confirm status returns to granted.

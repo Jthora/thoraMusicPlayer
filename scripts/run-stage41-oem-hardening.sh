@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ANDROID_DIR="$ROOT_DIR/app/android"
 ARTIFACT_DIR="$ROOT_DIR/app/android/app/build/reports/stage4-1-oem-hardening"
-PACKAGE_NAME="com.androidmusicplayerapp"
-ACTIVITY_NAME="com.androidmusicplayerapp/.MainActivity"
+PACKAGE_NAME="com.thoraplayer"
+ACTIVITY_NAME="com.thoraplayer/.MainActivity"
 
 mkdir -p "$ARTIFACT_DIR"
 
@@ -198,7 +198,7 @@ if not try_tap_text('SHOW ADVANCED TOOLS', max_swipes=4):
 
 require_text_with_scroll('Battery setup path', from_top=True)
 require_text_with_scroll('Autostart setup path')
-require_text_contains_with_scroll('Settings → Apps → Manage apps → Android Music Player')
+require_text_contains_with_scroll("Settings → Apps → Manage apps → Tho'ra Player")
 require_text_contains_with_scroll('Settings → Apps → Permissions → Autostart')
 
 for index, label in enumerate((
@@ -213,7 +213,7 @@ time.sleep(1)
 idle_state = sh_capture('adb shell dumpsys deviceidle get deep')
 sh('adb shell dumpsys deviceidle unforce')
 sh('adb shell input keyevent KEYCODE_WAKEUP')
-sh('adb shell am start -n com.androidmusicplayerapp/.MainActivity')
+sh('adb shell am start -n com.thoraplayer/.MainActivity')
 time.sleep(2)
 
 require_text_with_scroll('START IDLE TEST')

@@ -26,7 +26,7 @@ This codebase has solid functional coverage, but robustness is currently limited
 ### F-001 (Critical) — Native reliability event/snapshot persistence can lose data
 - Severity: Critical
 - Area: Native persistence integrity
-- Evidence: `app/android/app/src/main/java/com/androidmusicplayerapp/OemSetupModule.kt`
+- Evidence: `app/android/app/src/main/java/com/thoraplayer/OemSetupModule.kt`
 - Detail:
   - Events/snapshots/idle sessions are serialized into `StringSet` values (`toSet()`), which are deduplicated and unordered by design.
   - This can drop duplicate-but-valid entries and compromise chronological reliability evidence.
@@ -60,7 +60,7 @@ This codebase has solid functional coverage, but robustness is currently limited
 - Area: Playback consistency
 - Evidence:
   - `app/src/features/playback/useNowPlayingState.ts`
-  - `app/android/app/src/main/java/com/androidmusicplayerapp/PlaybackService.kt`
+  - `app/android/app/src/main/java/com/thoraplayer/PlaybackService.kt`
 - Detail:
   - JS now-playing progress is synthetic timer-driven and not sourced from native playback state.
   - Service `NEXT/PREVIOUS` handlers only refresh state and do not advance a native queue.
@@ -86,7 +86,7 @@ This codebase has solid functional coverage, but robustness is currently limited
 ### F-005 (High) — Playlist grant handling can report granted=true even when grant persistence fails
 - Severity: High
 - Area: Storage access correctness
-- Evidence: `app/android/app/src/main/java/com/androidmusicplayerapp/StorageAccessModule.kt`
+- Evidence: `app/android/app/src/main/java/com/thoraplayer/StorageAccessModule.kt`
 - Detail:
   - `pickPlaylistFile` wraps `takePersistableUriPermission` in `runCatching` and ignores failure but still returns `granted=true`.
 - Risk:
@@ -98,7 +98,7 @@ This codebase has solid functional coverage, but robustness is currently limited
 ### F-006 (High) — Relative playlist resolution uses playlist filename as base path
 - Severity: High
 - Area: Playlist parser accuracy
-- Evidence: `app/android/app/src/main/java/com/androidmusicplayerapp/PlaylistImporter.kt`
+- Evidence: `app/android/app/src/main/java/com/thoraplayer/PlaylistImporter.kt`
 - Detail:
   - `resolveRelativeToPlaylistDocument` uses `lastPathSegment` (filename) as base and concatenates entry path.
 - Risk:
@@ -137,7 +137,7 @@ This codebase has solid functional coverage, but robustness is currently limited
 - Area: Tooling portability/reliability
 - Evidence: `scripts/run-device-uiautomator-smoke.sh`
 - Detail:
-  - Embedded `ROOT = '/home/jono/workspace/github/androidMusicPlayer'` in Python block.
+  - Embedded `ROOT = '/home/jono/workspace/github/thora-player'` in Python block.
 - Risk:
   - Non-portable runs on other machines/CI agents.
 - Recommendation:

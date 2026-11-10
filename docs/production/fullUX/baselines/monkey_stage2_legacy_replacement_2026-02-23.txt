@@ -1,5 +1,5 @@
   bash arg: -p
-  bash arg: com.androidmusicplayerapp
+  bash arg: com.thoraplayer
   bash arg: -c
   bash arg: android.intent.category.LAUNCHER
   bash arg: 80

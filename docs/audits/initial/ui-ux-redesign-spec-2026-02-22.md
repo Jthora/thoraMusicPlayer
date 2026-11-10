@@ -5,7 +5,7 @@ Status: Proposed (implementation-ready)
 
 ## 1) Purpose
 
-Define the target UX for the Android Music Player so daily listening flows match mainstream music app expectations while preserving advanced reliability/diagnostic capabilities behind progressive disclosure.
+Define the target UX for the Tho'ra Player so daily listening flows match mainstream music app expectations while preserving advanced reliability/diagnostic capabilities behind progressive disclosure.
 
 This spec converts prior audits and backlog notes into concrete product decisions and implementation constraints.
 

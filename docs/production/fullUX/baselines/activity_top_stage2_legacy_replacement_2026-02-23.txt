@@ -1,5 +1,5 @@
-TASK 10336:com.androidmusicplayerapp id=493 userId=0 displayId=0(type=INTERNAL)
-  ACTIVITY com.androidmusicplayerapp/.MainActivity 74e49e1 pid=18328 userId=0 uid=10336 displayId=0(type=INTERNAL)
+TASK 10336:com.thoraplayer id=493 userId=0 displayId=0(type=INTERNAL)
+  ACTIVITY com.thoraplayer/.MainActivity 74e49e1 pid=18328 userId=0 uid=10336 displayId=0(type=INTERNAL)
     Local Activity d3f9b76 State:
       mResumed=false mStopped=true mFinished=false
       mIsInMultiWindowMode=false mIsInPictureInPictureMode=false
@@ -53,12 +53,12 @@ TASK 10336:com.androidmusicplayerapp id=493 userId=0 displayId=0(type=INTERNAL)
       android.view.ViewRootImpl$ImeInputStage: mQueueLength=0
       android.view.ViewRootImpl$NativePostImeInputStage: mQueueLength=0
       android.view.ViewRootImpl$WindowInputEventReceiver
-       mInputChannel: d853dab com.androidmusicplayerapp/com.androidmusicplayerapp.MainActivity (client)
+       mInputChannel: d853dab com.thoraplayer/com.thoraplayer.MainActivity (client)
        mSeqMap: {}
        mReceiverPtr:
         mInputConsumer:
           mResampleTouch = true
-          mChannel = d853dab com.androidmusicplayerapp/com.androidmusicplayerapp.MainActivity (client)
+          mChannel = d853dab com.thoraplayer/com.thoraplayer.MainActivity (client)
           mMsgDeferred: false
           Batches:
               <empty>

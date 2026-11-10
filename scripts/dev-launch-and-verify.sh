@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_DIR="$ROOT_DIR/app"
-APP_ID="com.androidmusicplayerapp"
+APP_ID="com.thoraplayer"
 ACTIVITY="$APP_ID/.MainActivity"
 PORT="8081"
 MAX_LAUNCH_ATTEMPTS=2
@@ -79,7 +79,7 @@ python3 - <<'PY'
 import re
 xml = open('/tmp/amp_dev_launch_verify.xml', encoding='utf-8').read()
 texts = set(re.findall(r'text="([^"]+)"', xml))
-print('APP_RENDERED_OK=' + str('Android Music Player' in texts or 'HOME' in texts))
+print('APP_RENDERED_OK=' + str("Tho'ra Player" in texts or 'HOME' in texts))
 print('HAS_RED_BOX_HINT=' + str('Unable to load script' in xml or 'JSBundleLoader.kt:33' in xml))
 PY
 

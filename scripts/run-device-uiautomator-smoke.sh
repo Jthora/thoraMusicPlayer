@@ -22,7 +22,7 @@ cd "$ANDROID_DIR"
 ./gradlew :app:installRelease >/dev/null
 
 cd "$ROOT_DIR"
-adb shell am start -n com.androidmusicplayerapp/.MainActivity >/dev/null
+adb shell am start -n com.thoraplayer/.MainActivity >/dev/null
 sleep 3
 
 ROOT_DIR="$ROOT_DIR" python3 - <<'PY'
@@ -228,7 +228,7 @@ def ensure_reliability_panel() -> None:
     raise RuntimeError('Unable to locate advanced-tools toggle in Settings')
 
 
-require_text('Android Music Player')
+require_text("Tho'ra Player")
 ensure_reliability_panel()
 require_text_with_scroll('Device Setup (Xiaomi/HyperOS)', from_top=True)
 

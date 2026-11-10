@@ -6,13 +6,13 @@ Scope: Second static/manual audit pass focused on transactional integrity, persi
 ## Method (Pass 2)
 
 - Deep-read of native persistence paths:
-  - `app/android/app/src/main/java/com/androidmusicplayerapp/LibraryIndexStore.kt`
-  - `app/android/app/src/main/java/com/androidmusicplayerapp/UserPlaylistStore.kt`
-  - `app/android/app/src/main/java/com/androidmusicplayerapp/PlaylistImportPersistence.kt`
-  - `app/android/app/src/main/java/com/androidmusicplayerapp/StorageAccessModule.kt`
+  - `app/android/app/src/main/java/com/thoraplayer/LibraryIndexStore.kt`
+  - `app/android/app/src/main/java/com/thoraplayer/UserPlaylistStore.kt`
+  - `app/android/app/src/main/java/com/thoraplayer/PlaylistImportPersistence.kt`
+  - `app/android/app/src/main/java/com/thoraplayer/StorageAccessModule.kt`
 - Traced bridge call paths through:
-  - `app/android/app/src/main/java/com/androidmusicplayerapp/MediaLibraryModule.kt`
-  - `app/android/app/src/main/java/com/androidmusicplayerapp/PlaylistImporter.kt`
+  - `app/android/app/src/main/java/com/thoraplayer/MediaLibraryModule.kt`
+  - `app/android/app/src/main/java/com/thoraplayer/PlaylistImporter.kt`
 - Reviewed JS hook orchestration and potential re-entrancy in:
   - `app/src/features/playlists/useUserPlaylists.ts`
   - `app/src/features/library/useIndexedLibrary.ts`
@@ -35,9 +35,9 @@ Main risk theme in pass 2: incremental sync deletion semantics can remove valid 
 - Severity: Critical
 - Area: Data integrity / index retention
 - Evidence:
-  - `app/android/app/src/main/java/com/androidmusicplayerapp/MediaLibraryModule.kt`
-  - `app/android/app/src/main/java/com/androidmusicplayerapp/LibraryIndexStore.kt`
-  - `app/android/app/src/main/java/com/androidmusicplayerapp/MediaLibraryScanner.kt`
+  - `app/android/app/src/main/java/com/thoraplayer/MediaLibraryModule.kt`
+  - `app/android/app/src/main/java/com/thoraplayer/LibraryIndexStore.kt`
+  - `app/android/app/src/main/java/com/thoraplayer/MediaLibraryScanner.kt`
 - Detail:
   - `runIncrementalMediaStoreSync(limit)` and `runIncrementalSafSync(limitPerRoot)` permit bounded scans.
   - `LibraryIndexStore.syncIncremental` always calls `removeMissingTracksForSource(...)`, deleting all existing rows not present in `seenUris`.
@@ -52,8 +52,8 @@ Main risk theme in pass 2: incremental sync deletion semantics can remove valid 
 - Severity: Critical
 - Area: Multi-root transactional correctness
 - Evidence:
-  - `app/android/app/src/main/java/com/androidmusicplayerapp/MediaLibraryModule.kt`
-  - `app/android/app/src/main/java/com/androidmusicplayerapp/LibraryIndexStore.kt`
+  - `app/android/app/src/main/java/com/thoraplayer/MediaLibraryModule.kt`
+  - `app/android/app/src/main/java/com/thoraplayer/LibraryIndexStore.kt`
 - Detail:
   - SAF incremental calls `syncIncremental(..., sourceType = "SAF", sourceRoot = "TREE", tracks = allRootsMerged)`.
   - Deletion scope in `removeMissingTracksForSource` is keyed by `(source_type, source_root)`; all SAF roots share one synthetic root key.
@@ -66,7 +66,7 @@ Main risk theme in pass 2: incremental sync deletion semantics can remove valid 
 ### P2-003 (High) — Playlist reorder path is read-modify-write and race-prone
 - Severity: High
 - Area: Concurrency / lost updates
-- Evidence: `app/android/app/src/main/java/com/androidmusicplayerapp/UserPlaylistStore.kt`
+- Evidence: `app/android/app/src/main/java/com/thoraplayer/UserPlaylistStore.kt`
 - Detail:
   - `moveTrack` reads the full playlist via `getPlaylistEntries` (outside write transaction), then begins transaction and rewrites rows.
   - Concurrent `addTrack`/`removeTrack`/`moveTrack` calls can interleave and overwrite each other’s updates.
@@ -80,8 +80,8 @@ Main risk theme in pass 2: incremental sync deletion semantics can remove valid 
 - Severity: High
 - Area: Referential integrity
 - Evidence:
-  - `app/android/app/src/main/java/com/androidmusicplayerapp/UserPlaylistStore.kt`
-  - `app/android/app/src/main/java/com/androidmusicplayerapp/LibraryIndexStore.kt`
+  - `app/android/app/src/main/java/com/thoraplayer/UserPlaylistStore.kt`
+  - `app/android/app/src/main/java/com/thoraplayer/LibraryIndexStore.kt`
 - Detail:
   - Tables define foreign keys, but SQLite foreign key enforcement is off unless explicitly enabled.
   - Stores do not enable `PRAGMA foreign_keys = ON` in open/config callbacks.
@@ -94,8 +94,8 @@ Main risk theme in pass 2: incremental sync deletion semantics can remove valid 
 - Severity: High
 - Area: Input validation / integrity
 - Evidence:
-  - `app/android/app/src/main/java/com/androidmusicplayerapp/MediaLibraryModule.kt`
-  - `app/android/app/src/main/java/com/androidmusicplayerapp/UserPlaylistStore.kt`
+  - `app/android/app/src/main/java/com/thoraplayer/MediaLibraryModule.kt`
+  - `app/android/app/src/main/java/com/thoraplayer/UserPlaylistStore.kt`
 - Detail:
   - Bridge methods cast playlist IDs from JS doubles and directly mutate rows.
   - Store methods do not assert playlist existence before insert/update/delete operations.
@@ -108,8 +108,8 @@ Main risk theme in pass 2: incremental sync deletion semantics can remove valid 
 - Severity: Medium
 - Area: Persistence durability / concurrent updates
 - Evidence:
-  - `app/android/app/src/main/java/com/androidmusicplayerapp/StorageAccessModule.kt`
-  - `app/android/app/src/main/java/com/androidmusicplayerapp/OemSetupModule.kt`
+  - `app/android/app/src/main/java/com/thoraplayer/StorageAccessModule.kt`
+  - `app/android/app/src/main/java/com/thoraplayer/OemSetupModule.kt`
 - Detail:
   - Multiple features perform read-modify-write over `StringSet` + `apply()`.
   - Concurrent operations can race and overwrite updates; `apply()` is async and not crash-atomic for immediate process death.
@@ -122,7 +122,7 @@ Main risk theme in pass 2: incremental sync deletion semantics can remove valid 
 ### P2-007 (Medium) — Playlist import history save is not strongly durable
 - Severity: Medium
 - Area: Crash consistency
-- Evidence: `app/android/app/src/main/java/com/androidmusicplayerapp/PlaylistImportPersistence.kt`
+- Evidence: `app/android/app/src/main/java/com/thoraplayer/PlaylistImportPersistence.kt`
 - Detail:
   - Latest import summary writes via `apply()` without commit acknowledgment.
 - Risk:
@@ -147,8 +147,8 @@ Main risk theme in pass 2: incremental sync deletion semantics can remove valid 
 - Severity: Low
 - Area: Operability / observability
 - Evidence:
-  - `app/android/app/src/main/java/com/androidmusicplayerapp/MediaLibraryScanner.kt`
-  - `app/android/app/src/main/java/com/androidmusicplayerapp/LibraryIndexStore.kt`
+  - `app/android/app/src/main/java/com/thoraplayer/MediaLibraryScanner.kt`
+  - `app/android/app/src/main/java/com/thoraplayer/LibraryIndexStore.kt`
 - Detail:
   - Partial conditions are present as warning text, but snapshot rows do not encode a normalized coverage field.
 - Risk:

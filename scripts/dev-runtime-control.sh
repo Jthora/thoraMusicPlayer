@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP_DIR="$REPO_ROOT/app"
-APP_ID="com.androidmusicplayerapp"
+APP_ID="com.thoraplayer"
 ACTIVITY="$APP_ID/.MainActivity"
 METRO_PORT="8081"
 LOG_DIR="${1:-/tmp/android-music-player-runtime}"

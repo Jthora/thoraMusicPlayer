@@ -15,7 +15,7 @@ Scope: Stage 1 — Foundation and Safety Rails
   - `docs/production/fullUX/baselines/activity_top_2026-02-23.txt`
 
 Smoke note:
-- App cold-starts successfully via `adb shell am start -n com.androidmusicplayerapp/.MainActivity`.
+- App cold-starts successfully via `adb shell am start -n com.thoraplayer/.MainActivity`.
 
 ### 1.2 Playback continuity baseline (play/pause/next/prev)
 - Service/runtime snapshots:
@@ -78,13 +78,13 @@ Gate checks defined and run:
 
 ## 4) Commands Run (Reference)
 - Startup baseline capture:
-  - `adb shell am force-stop com.androidmusicplayerapp`
-  - `adb shell am start -n com.androidmusicplayerapp/.MainActivity`
+  - `adb shell am force-stop com.thoraplayer`
+  - `adb shell am start -n com.thoraplayer/.MainActivity`
   - `adb shell uiautomator dump ...`
   - `adb shell screencap -p ...`
   - `adb shell dumpsys activity top`
 - Playback/runtime snapshots:
-  - `adb shell dumpsys activity services com.androidmusicplayerapp`
+  - `adb shell dumpsys activity services com.thoraplayer`
   - `adb shell dumpsys media_session`
 
 ## 5) Stage 1 Exit Decision
