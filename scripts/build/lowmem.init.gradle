@@ -1,0 +1,17 @@
+// Low-memory tweaks applied by scripts/build/build-android.sh (not part of the normal build).
+def jobPool = gradle.startParameter.projectProperties['thora.jobpool']
+
+allprojects { proj ->
+  ['com.android.application', 'com.android.library'].each { id ->
+    proj.pluginManager.withPlugin(id) {
+      proj.extensions.getByName('androidComponents').finalizeDsl { ext ->
+        // Cap native compile parallelism: each clang process can use several hundred MB.
+        if (jobPool) {
+          ext.defaultConfig.externalNativeBuild.cmake.arguments("-DCMAKE_PROJECT_INCLUDE=${jobPool}")
+        }
+        // Release lint loads every dependency's sources into memory: skip it here.
+        ext.lint.checkReleaseBuilds = false
+      }
+    }
+  }
+}
