@@ -22,6 +22,9 @@ data class PlaylistLibraryTrack(
     val relativePath: String,
 )
 
+/** A file hidden from the library as a duplicate of the track at [canonicalUri]. */
+data class PlaylistTrackCopy(val relativePath: String, val displayName: String, val canonicalUri: String)
+
 data class ParsedPlaylistEntry(
     val lineNumber: Int,
     val location: String,
@@ -194,7 +197,11 @@ data class PlaylistEntryResolution(
  * @param playlistFolder the playlist's own folder on the device ("Music/Thora/_playlists"),
  *   used to resolve relative entries; null when unknown.
  */
-class PlaylistEntryResolver(tracks: List<PlaylistLibraryTrack>, private val playlistFolder: String?) {
+class PlaylistEntryResolver(
+    tracks: List<PlaylistLibraryTrack>,
+    private val playlistFolder: String?,
+    copies: List<PlaylistTrackCopy> = emptyList(),
+) {
     private val byUri = HashMap<String, PlaylistLibraryTrack>()
     private val byPath = HashMap<String, PlaylistLibraryTrack>()
     private val byName = HashMap<String, MutableList<PlaylistLibraryTrack>>()
@@ -211,6 +218,15 @@ class PlaylistEntryResolver(tracks: List<PlaylistLibraryTrack>, private val play
                 byStem.getOrPut(stemOf(name)) { mutableListOf() }.add(track)
             }
             normalizeText(track.title).takeIf { it.isNotEmpty() }?.let { byTitle.getOrPut(it) { mutableListOf() }.add(track) }
+        }
+        // An entry naming a hidden duplicate file is an exact match for the song it duplicates.
+        // Copies only join the exact-path lookup, so they never make a file name ambiguous.
+        copies.forEach { copy ->
+            val track = byUri[copy.canonicalUri] ?: return@forEach
+            val name = copy.displayName.lowercase(Locale.ROOT)
+            if (name.isNotEmpty()) {
+                byPath.putIfAbsent(pathKey(copy.relativePath.replace('\\', '/').trim('/'), name), track)
+            }
         }
     }
 

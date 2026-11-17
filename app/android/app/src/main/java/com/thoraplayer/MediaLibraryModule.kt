@@ -30,8 +30,10 @@ class MediaLibraryModule(reactContext: ReactApplicationContext) :
         private const val STORAGE_PREFS_NAME = "storage_access"
         private const val STORAGE_URI_KEY = "granted_tree_uris"
         private const val MAX_SEARCH_QUERY_LENGTH = 256
-        private const val MAX_SEARCH_LIMIT = 100
-        private const val MAX_BROWSE_LIMIT = 500
+        private const val MAX_SEARCH_LIMIT = 2_000
+        private const val DEFAULT_SEARCH_LIMIT = 500
+        // The library views load the whole index (songs, albums, artists); ~5k songs is a few MB.
+        private const val MAX_BROWSE_LIMIT = 50_000
         private const val MAX_PLAYLIST_NAME_LENGTH = 80
     }
 
@@ -351,7 +353,7 @@ class MediaLibraryModule(reactContext: ReactApplicationContext) :
             if (normalizedQuery.isBlank()) {
                 Arguments.createArray()
             } else {
-                indexStore.searchTracks(normalizedQuery, clampLimit(limit, defaultLimit = 30, maxLimit = MAX_SEARCH_LIMIT))
+                indexStore.searchTracks(normalizedQuery, clampLimit(limit, defaultLimit = DEFAULT_SEARCH_LIMIT, maxLimit = MAX_SEARCH_LIMIT))
             }
         }
     }
@@ -369,7 +371,7 @@ class MediaLibraryModule(reactContext: ReactApplicationContext) :
                 }
             } else {
                 val normalizedScope = normalizeSearchScope(scope)
-                val safeLimit = clampLimit(limit, defaultLimit = 30, maxLimit = MAX_SEARCH_LIMIT)
+                val safeLimit = clampLimit(limit, defaultLimit = DEFAULT_SEARCH_LIMIT, maxLimit = MAX_SEARCH_LIMIT)
                 val tracks = indexStore.searchTracksByScope(normalizedQuery, normalizedScope, safeLimit)
                 val playlists = if (normalizedScope == "all" || normalizedScope == "playlist_titles") {
                     userPlaylistStore.searchPlaylistsByName(normalizedQuery, safeLimit)
@@ -561,6 +563,13 @@ class MediaLibraryModule(reactContext: ReactApplicationContext) :
     fun addTrackToUserPlaylist(playlistId: Double, track: ReadableMap, promise: Promise) {
         runOnBackground(promise, "USER_PLAYLIST_ADD_TRACK_ERROR") {
             userPlaylistStore.addTrack(requireValidPlaylistId(playlistId), track)
+        }
+    }
+
+    @ReactMethod
+    fun deleteUserPlaylist(playlistId: Double, promise: Promise) {
+        runOnBackground(promise, "USER_PLAYLIST_DELETE_ERROR") {
+            userPlaylistStore.deletePlaylist(requireValidPlaylistId(playlistId))
         }
     }
 

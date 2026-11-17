@@ -9,20 +9,22 @@ type SectionCardProps = {
   subtitle?: string;
   titleRight?: ReactNode;
   children: ReactNode;
+  /** Take the remaining height of a flex column (for a card whose list should fill the screen). */
+  fill?: boolean;
 };
 
-export function SectionCard({title, subtitle, titleRight, children}: SectionCardProps) {
+export function SectionCard({title, subtitle, titleRight, children, fill = false}: SectionCardProps) {
   const {colors, fontFamily} = useTheme();
   const styles = useMemo(() => createStyles(colors, fontFamily), [colors, fontFamily]);
 
   return (
-    <View style={styles.card}>
+    <View style={fill ? [styles.card, styles.fill] : styles.card}>
       <View style={styles.titleRow}>
         <Text style={styles.title}>{title}</Text>
         {titleRight ? <View style={styles.titleRight}>{titleRight}</View> : null}
       </View>
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-      <View style={styles.content}>{children}</View>
+      <View style={fill ? [styles.content, styles.fill] : styles.content}>{children}</View>
     </View>
   );
 }
@@ -60,6 +62,10 @@ function createStyles(colors: ThemeColors, fontFamily: string) {
     content: {
       gap: spacing.sm,
       marginTop: spacing.xs,
+    },
+    fill: {
+      flex: 1,
+      minHeight: 0,
     },
   });
 }

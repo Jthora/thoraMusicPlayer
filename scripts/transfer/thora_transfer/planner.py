@@ -9,6 +9,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+from . import source_io
 from . import classify as cls
 from .config import TRANSCODE_PROFILES, Config
 from .naming import collision_key, replace_extension, sanitize_rel_path, with_suffix_counter
@@ -100,9 +101,12 @@ def build_plan(config: Config, conn: sqlite3.Connection) -> dict:
     def hashed(row: sqlite3.Row, column: str) -> str | None:
         if row[column]:
             return row[column]
-        path = config.source(row["source"]).path / row["rel_path"]
+        source = config.source(row["source"])
         try:
-            value = quick_hash(path, row["size"]) if column == "quick_hash" else full_hash(path)
+            if column == "quick_hash":
+                value = source_io.quick_hash(source, row["rel_path"], row["size"], QUICK_CHUNK)
+            else:
+                value = source_io.full_hash(source, row["rel_path"])
         except OSError as error:
             hash_errors.append(f"{row['source']}/{row['rel_path']}: {error}")
             return None

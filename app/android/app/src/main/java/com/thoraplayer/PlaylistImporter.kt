@@ -33,7 +33,11 @@ class PlaylistImporter(
         val parsed = PlaylistFileParser.parse(PlaylistFileParser.decode(bytes), fileName)
 
         val playlistFolder = playlistFolderOf(uri)
-        val resolver = PlaylistEntryResolver(indexStore.loadPlaylistMatchTracks(), playlistFolder)
+        val resolver = PlaylistEntryResolver(
+            indexStore.loadPlaylistMatchTracks(),
+            playlistFolder,
+            indexStore.loadPlaylistMatchCopies(),
+        )
         val diagnostics = mutableListOf<PlaylistEntryDiagnostic>()
         val matched = mutableListOf<PlaylistLibraryTrack>()
         val seen = mutableSetOf<String>()

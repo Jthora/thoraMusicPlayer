@@ -50,6 +50,11 @@ export function useUserPlaylists() {
   const [restoredSelectedPlaylistId, setRestoredSelectedPlaylistId] = useState<number | null>(null);
   const [selectionHydrated, setSelectionHydrated] = useState(false);
   const requestSeqRef = useRef(0);
+  // Loading a playlist's entries has its own counter: a playlist-list refresh that starts while a
+  // playlist is opening must not make that open look stale (the page then said "Loading…" forever).
+  const entriesSeqRef = useRef(0);
+  // The playlist being opened, so a refresh in the meantime doesn't pick a different default.
+  const pendingSelectionRef = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -117,6 +122,9 @@ export function useUserPlaylists() {
       }
 
       setStatus(`Loaded ${rows.length} user playlist(s)`);
+      if (pendingSelectionRef.current !== null) {
+        return; // selectPlaylist is loading the playlist the user opened
+      }
       const preferredPlaylistId =
         selectedPlaylistId && rows.some(item => item.id === selectedPlaylistId)
           ? selectedPlaylistId
@@ -125,11 +133,12 @@ export function useUserPlaylists() {
             : rows[0].id;
 
       if (!selectedPlaylistId || selectedPlaylistId !== preferredPlaylistId) {
-        setSelectedPlaylistId(preferredPlaylistId);
+        const entriesSeq = ++entriesSeqRef.current;
         const defaultEntries = await mediaLibrary.getUserPlaylistEntries(preferredPlaylistId);
-        if (!isCurrentRequest(requestSeq)) {
+        if (entriesSeq !== entriesSeqRef.current || pendingSelectionRef.current !== null) {
           return;
         }
+        setSelectedPlaylistId(preferredPlaylistId);
         setEntries(defaultEntries);
       }
     } catch (error) {
@@ -183,17 +192,22 @@ export function useUserPlaylists() {
       return;
     }
 
+    const entriesSeq = ++entriesSeqRef.current;
+    pendingSelectionRef.current = playlistId;
     try {
-      const requestSeq = nextRequestSeq();
       const rows = await mediaLibrary.getUserPlaylistEntries(playlistId);
-      if (!isCurrentRequest(requestSeq)) {
-        return;
+      if (entriesSeq !== entriesSeqRef.current) {
+        return; // another playlist was opened meanwhile
       }
       setSelectedPlaylistId(playlistId);
       setEntries(rows);
       setStatus(`Loaded ${rows.length} track(s) from playlist`);
     } catch (error) {
       setStatus(`Failed to load playlist entries (${getErrorMessage(error)})`);
+    } finally {
+      if (entriesSeq === entriesSeqRef.current) {
+        pendingSelectionRef.current = null;
+      }
     }
   });
 
@@ -264,6 +278,29 @@ export function useUserPlaylists() {
     }
   });
 
+  const deletePlaylist = useStableCallback(async (playlistId: number): Promise<boolean> => {
+    if (!mediaLibrary) {
+      setStatus('Media library module unavailable');
+      return false;
+    }
+    try {
+      setIsMutating(true);
+      const remaining = await mediaLibrary.deleteUserPlaylist(playlistId);
+      setPlaylists(remaining);
+      if (selectedPlaylistId === playlistId) {
+        setSelectedPlaylistId(null);
+        setEntries([]);
+      }
+      setStatus(`Deleted playlist (${remaining.length} left)`);
+      return true;
+    } catch (error) {
+      setStatus(`Failed to delete playlist (${getErrorMessage(error)})`);
+      return false;
+    } finally {
+      setIsMutating(false);
+    }
+  });
+
   const moveTrack = useStableCallback(async (fromPosition: number, toPosition: number) => {
     if (!mediaLibrary || !selectedPlaylistId) {
       setStatus('Select a playlist first');
@@ -304,5 +341,6 @@ export function useUserPlaylists() {
     addTrack,
     removeTrack,
     moveTrack,
+    deletePlaylist,
   };
 }

@@ -17,6 +17,7 @@ from .adb import Adb, AdbError
 from .config import TRANSCODE_PROFILES, Config
 from .planner import ACTION_COPY, ACTION_TRANSCODE, PUSHABLE_ACTIONS
 from .selection import selected_file_ids
+from .source_io import is_archive, local_file
 from .state import finish_run, start_run
 
 
@@ -162,8 +163,18 @@ def run_push(
 
             same_name: list[sqlite3.Row] = []
             for row in group:
-                src = config.source(row["source"]).path / row["rel_path"]
+                src_source = config.source(row["source"])
+                src = src_source.path / row["rel_path"]
                 remote = f"{root}/{row['dest_rel']}"
+                if is_archive(src_source) and row["action"] == ACTION_COPY:
+                    # Zip member: extract this one file to tmp, push it, delete it.
+                    try:
+                        with local_file(src_source, row["rel_path"], row["mtime_ns"], config.tmp_dir) as extracted:
+                            adb.push_file(str(extracted), remote)
+                        expected[remote] = (row, row["size"], None)
+                    except (AdbError, OSError, KeyError) as error:
+                        failures.append(f"{row['dest_rel']}: {error}")
+                    continue
                 if row["action"] == ACTION_TRANSCODE:
                     out: Path | None = None
                     try:
@@ -202,7 +213,7 @@ def run_push(
             for remote, (row, size, src) in expected.items():
                 found = stats.get(remote)
                 if not found or found.size != size:
-                    if row["action"] == ACTION_COPY:
+                    if row["action"] == ACTION_COPY and src is not None:
                         try:  # never trust --sync after an interrupted write; re-push explicitly
                             adb.push_file(str(src), remote)
                             found = adb.stat_files([remote]).get(remote)

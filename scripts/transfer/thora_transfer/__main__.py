@@ -55,6 +55,7 @@ def main(argv: list[str] | None = None) -> int:
     rosters.add_argument("--out", default="~/ThoraTransfer/spotify/rosters")
     rosters.add_argument("--only", action="append", help="playlist id or name (repeatable)")
     rosters.add_argument("--delay", type=float, default=1.5, help="seconds between requests")
+    rosters.add_argument("--discover-user", help="Spotify user id: add new playlists from their public profile, fetch only those")
     sub.add_parser("pull-playlists", help="adb pull playlists exported by the app back to the Mac")
 
     args = parser.parse_args(argv)
@@ -69,7 +70,17 @@ def main(argv: list[str] | None = None) -> int:
 
         from .spotify_rosters import fetch_rosters
 
-        summary = fetch_rosters(Path(args.rosters_json).expanduser(), Path(args.out).expanduser(), args.delay, args.only)
+        from .spotify_rosters import discover_user_playlists
+
+        rosters_json = Path(args.rosters_json).expanduser()
+        only = args.only
+        if args.discover_user:
+            added = discover_user_playlists(rosters_json, args.discover_user)
+            if not added and not only:
+                print("[spotify] nothing new to fetch")
+                return 0
+            only = (only or []) + added
+        summary = fetch_rosters(rosters_json, Path(args.out).expanduser(), args.delay, only)
         return 0 if summary["ok"] else 1
 
     try:

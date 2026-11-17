@@ -1,7 +1,8 @@
 import unittest
 from pathlib import Path
 
-from thora_transfer.playlists.command import PlaylistSource, _is_album_list, _rank, playlist_name_key
+from thora_transfer.playlists.command import (PlaylistSource, _distinct_recordings, _is_album_list, _rank,
+                                              playlist_name_key)
 from thora_transfer.playlists.matcher import PlaylistContext
 from thora_transfer.playlists.parsers import ParsedPlaylist, PlaylistEntry, parse_file
 
@@ -47,6 +48,23 @@ class PlaylistCollectionTest(unittest.TestCase):
             parsed = parse_file(path)
             self.assertEqual(parsed[0].name, "All American Roadtrip by Baum")
             self.assertEqual([e.location for e in parsed[0].entries], ["ACDC - Thunderstruck.mp3"])
+
+    def test_folder_playlist_lists_each_song_once_using_the_best_copy(self):
+        def row(name, title, artist, duration_ms, bitrate, size=1):
+            return {"rel_path": f"liked/{name}", "title": title, "artist": artist,
+                    "duration_ms": duration_ms, "bitrate": bitrate, "size": size}
+        rows = [
+            row("!!! - Bend Over Beethoven__2.mp3", "Bend Over Beethoven", "!!!", 486_840, 133_000),
+            row("!!! - Bend Over Beethoven.mp3", "Bend Over Beethoven", "!!!", 486_100, 320_000),
+            row("Artist - Song (Live).mp3", "Song", "Artist", 300_000, 320_000),  # same tags, other length
+            row("Artist - Song.mp3", "Song", "Artist", 200_000, 320_000),
+            row("untagged.mp3", None, None, 100_000, 128_000),
+            row("untagged__2.mp3", None, None, 100_000, 128_000),
+        ]
+        names, collapsed = _distinct_recordings(rows)
+        self.assertEqual(collapsed, 1)
+        self.assertEqual(names, ["!!! - Bend Over Beethoven.mp3", "Artist - Song (Live).mp3", "Artist - Song.mp3",
+                                 "untagged.mp3", "untagged__2.mp3"])
 
 
 if __name__ == "__main__":

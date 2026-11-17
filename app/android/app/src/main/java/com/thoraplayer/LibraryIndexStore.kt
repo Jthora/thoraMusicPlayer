@@ -27,12 +27,14 @@ class LibraryIndexStore(context: Context) :
             }
 
         private const val DATABASE_NAME = "library_index.db"
-        private const val DATABASE_VERSION = 4
+        private const val DATABASE_VERSION = 5
 
         private const val TABLE_TRACKS = "indexed_tracks"
         private const val TABLE_SNAPSHOTS = "scan_snapshots"
         private const val TABLE_DIAGNOSTICS = "scan_diagnostics"
         private const val TABLE_TRACK_PLAY_STATS = "track_play_stats"
+        /** Files hidden as duplicates of an indexed track (same title, artist and exact duration). */
+        private const val TABLE_TRACK_COPIES = "track_copies"
         private const val SCAN_HISTORY_KEEP = 50
     }
 
@@ -118,6 +120,7 @@ class LibraryIndexStore(context: Context) :
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_diag_snapshot ON $TABLE_DIAGNOSTICS(snapshot_id)")
 
         createTrackPlayStatsTable(db)
+        createTrackCopiesTable(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -152,6 +155,58 @@ class LibraryIndexStore(context: Context) :
             createTrackPlayStatsTable(db)
             backfillTrackPlayStatsForExistingTracks(db)
         }
+
+        if (oldVersion < 5) {
+            createTrackCopiesTable(db)
+        }
+    }
+
+    /**
+     * A playlist can name any copy of a song; the library shows one. Remembering where the hidden
+     * copies are lets an exact-path playlist entry still land on the song (see loadPlaylistMatchCopies).
+     */
+    private fun createTrackCopiesTable(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_TRACK_COPIES (
+                uri TEXT PRIMARY KEY,
+                dedup_key TEXT NOT NULL,
+                display_name TEXT NOT NULL,
+                relative_path TEXT NOT NULL
+            )
+            """.trimIndent()
+        )
+    }
+
+    private fun recordCopy(db: SQLiteDatabase, uri: String, dedupKey: String, displayName: String, relativePath: String) {
+        db.insertWithOnConflict(
+            TABLE_TRACK_COPIES,
+            null,
+            ContentValues().apply {
+                put("uri", uri)
+                put("dedup_key", dedupKey)
+                put("display_name", displayName)
+                put("relative_path", relativePath)
+            },
+            SQLiteDatabase.CONFLICT_REPLACE
+        )
+    }
+
+    private fun forgetCopy(db: SQLiteDatabase, uri: String) {
+        db.delete(TABLE_TRACK_COPIES, "uri = ?", arrayOf(uri))
+    }
+
+    private fun removeMissingCopies(db: SQLiteDatabase, seenUris: Set<String>) {
+        val missing = mutableListOf<String>()
+        db.rawQuery("SELECT uri FROM $TABLE_TRACK_COPIES", null).use { cursor ->
+            while (cursor.moveToNext()) {
+                val uri = cursor.getString(0)
+                if (uri !in seenUris) {
+                    missing.add(uri)
+                }
+            }
+        }
+        missing.forEach { forgetCopy(db, it) }
     }
 
     private fun createTrackPlayStatsTable(db: SQLiteDatabase) {
@@ -231,6 +286,8 @@ class LibraryIndexStore(context: Context) :
         var removed = 0
         var unchanged = 0
         val seenUris = mutableSetOf<String>()
+        // Rows switched to a better copy during this sync: the copy they replaced must not take them back.
+        val replacedRowIds = mutableSetOf<Long>()
 
         db.beginTransaction()
         try {
@@ -254,6 +311,11 @@ class LibraryIndexStore(context: Context) :
                 val updatedAtSec = nowSec()
 
                 val existing = existingRows[canonicalUri]
+                if (existing != null && existing.first in replacedRowIds) {
+                    recordCopy(db, canonicalUri, dedupKey, normalized.displayName, normalized.relativePath)
+                    duplicate += 1
+                    return@forEach
+                }
                 if (existing != null && existing.second == fingerprintOf(sourceType, sourceRoot, normalized)) {
                     unchanged += 1
                     return@forEach
@@ -274,12 +336,30 @@ class LibraryIndexStore(context: Context) :
                     return@forEach
                 }
 
-                val possibleDuplicateUri = queryCanonicalUriByDedupKey(db, dedupKey)
-                if (possibleDuplicateUri != null && possibleDuplicateUri != canonicalUri) {
-                    duplicate += 1
+                val indexedCopy = queryIndexedCopy(db, dedupKey)
+                if (indexedCopy != null && indexedCopy.uri != canonicalUri) {
+                    if (normalized.sizeBytes > indexedCopy.sizeBytes) {
+                        replaceWithBetterCopy(
+                            db = db,
+                            indexedCopy = indexedCopy,
+                            canonicalUri = canonicalUri,
+                            sourceType = sourceType,
+                            sourceRoot = sourceRoot,
+                            normalized = normalized,
+                            dedupKey = dedupKey,
+                            searchTokens = searchTokens,
+                            updatedAtSec = updatedAtSec
+                        )
+                        replacedRowIds.add(indexedCopy.id)
+                        updated += 1
+                    } else {
+                        recordCopy(db, canonicalUri, dedupKey, normalized.displayName, normalized.relativePath)
+                        duplicate += 1
+                    }
                     return@forEach
                 }
 
+                forgetCopy(db, canonicalUri)
                 insertTrack(
                     db = db,
                     canonicalUri = canonicalUri,
@@ -294,6 +374,7 @@ class LibraryIndexStore(context: Context) :
             }
 
             removed = if (allowRemoval) {
+                removeMissingCopies(db, seenUris)
                 removeMissingTracksForSource(db, sourceType, sourceRoot, seenUris)
             } else {
                 0
@@ -428,6 +509,24 @@ class LibraryIndexStore(context: Context) :
         return tracks
     }
 
+    /** Where each hidden duplicate file is, and the indexed track it stands for. */
+    fun loadPlaylistMatchCopies(): List<PlaylistTrackCopy> {
+        val copies = ArrayList<PlaylistTrackCopy>()
+        readableDatabase.rawQuery(
+            """
+            SELECT c.relative_path, c.display_name, t.canonical_uri
+            FROM $TABLE_TRACK_COPIES c
+            JOIN $TABLE_TRACKS t ON t.dedup_key = c.dedup_key
+            """.trimIndent(),
+            null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                copies.add(PlaylistTrackCopy(cursor.getString(0).orEmpty(), cursor.getString(1).orEmpty(), cursor.getString(2)))
+            }
+        }
+        return copies
+    }
+
     fun recordPlaybackEvent(
         uri: String,
         eventType: String,
@@ -554,14 +653,71 @@ class LibraryIndexStore(context: Context) :
         return null
     }
 
-    private fun queryCanonicalUriByDedupKey(db: SQLiteDatabase, dedupKey: String): String? {
-        val sql = "SELECT canonical_uri FROM $TABLE_TRACKS WHERE dedup_key = ? LIMIT 1"
+    private data class IndexedCopy(val id: Long, val uri: String, val sizeBytes: Long)
+
+    /** The indexed track that is the same recording (same title, artist and exact duration), if any. */
+    private fun queryIndexedCopy(db: SQLiteDatabase, dedupKey: String): IndexedCopy? {
+        val sql = "SELECT id, canonical_uri, size_bytes FROM $TABLE_TRACKS WHERE dedup_key = ? ORDER BY size_bytes DESC LIMIT 1"
         db.rawQuery(sql, arrayOf(dedupKey)).use { cursor ->
             if (cursor.moveToFirst()) {
-                return cursor.getString(0)
+                return IndexedCopy(cursor.getLong(0), cursor.getString(1), cursor.getLong(2))
             }
         }
         return null
+    }
+
+    /**
+     * The same recording turned up in a bigger file (a better encode: a 320 kbps download next to
+     * an older 128 kbps one). Index that copy instead, keeping the track's row and play counts;
+     * the smaller copy is then the hidden duplicate.
+     */
+    private fun replaceWithBetterCopy(
+        db: SQLiteDatabase,
+        indexedCopy: IndexedCopy,
+        canonicalUri: String,
+        sourceType: String,
+        sourceRoot: String,
+        normalized: NormalizedTrack,
+        dedupKey: String,
+        searchTokens: String,
+        updatedAtSec: Long
+    ) {
+        db.rawQuery(
+            "SELECT display_name, relative_path FROM $TABLE_TRACKS WHERE id = ?",
+            arrayOf(indexedCopy.id.toString())
+        ).use { cursor ->
+            if (cursor.moveToFirst()) {
+                recordCopy(db, indexedCopy.uri, dedupKey, cursor.getString(0).orEmpty(), cursor.getString(1).orEmpty())
+            }
+        }
+        forgetCopy(db, canonicalUri)
+        // Play stats reference the track's URI (foreign key), so move them across in this order.
+        val stats = queryTrackPlayStats(db, indexedCopy.uri)
+        db.delete(TABLE_TRACK_PLAY_STATS, "uri = ?", arrayOf(indexedCopy.uri))
+        updateTrack(
+            db = db,
+            id = indexedCopy.id,
+            canonicalUri = canonicalUri,
+            sourceType = sourceType,
+            sourceRoot = sourceRoot,
+            normalized = normalized,
+            dedupKey = dedupKey,
+            searchTokens = searchTokens,
+            updatedAtSec = updatedAtSec
+        )
+        if (stats != null) {
+            db.update(
+                TABLE_TRACK_PLAY_STATS,
+                ContentValues().apply {
+                    put("play_count", stats.playCount)
+                    put("last_played_at_sec", stats.lastPlayedAtSec)
+                    put("last_completed_at_sec", stats.lastCompletedAtSec)
+                    put("skip_count", stats.skipCount)
+                },
+                "uri = ?",
+                arrayOf(canonicalUri)
+            )
+        }
     }
 
     private fun queryTrackPlayStats(db: SQLiteDatabase, uri: String): TrackPlayStats? {

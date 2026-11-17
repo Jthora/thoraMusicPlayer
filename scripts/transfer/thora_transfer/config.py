@@ -54,6 +54,13 @@ class Remap:
 
 
 @dataclass
+class MergedPlaylist:
+    name: str
+    sources: list[str]
+    order_logs: list[Path] = field(default_factory=list)
+
+
+@dataclass
 class Config:
     path: Path
     state_dir: Path
@@ -72,6 +79,8 @@ class Config:
     spotify_rosters_dir: Path | None = None
     # Accept a review candidate when the entry's artist and title agree with it (tags_agree).
     accept_review_when_tags_agree: bool = False
+    # [[playlists.merged]]: playlists built from other generated playlists (see playlists/merged.py).
+    merged_playlists: list[MergedPlaylist] = field(default_factory=list)
 
     @property
     def db_path(self) -> Path:
@@ -202,6 +211,14 @@ def load_config(explicit: str | None = None) -> Config:
         ],
         spotify_rosters_dir=_expand(str(playlists["spotify_rosters_dir"])) if playlists.get("spotify_rosters_dir") else None,
         accept_review_when_tags_agree=bool(playlists.get("accept_review_when_tags_agree", False)),
+        merged_playlists=[
+            MergedPlaylist(
+                name=str(item["name"]),
+                sources=[str(source) for source in item.get("from", [])],
+                order_logs=[_expand(str(log)) for log in item.get("order_logs", [])],
+            )
+            for item in playlists.get("merged", [])
+        ],
     )
 
 

@@ -58,7 +58,13 @@ describe('render cost while playing', () => {
       return null;
     }
     const renderer = ReactTestRenderer.create(<Host />);
-    await wait(300); // initial snapshot arrives
+    // Let the initial snapshot arrive: wait until renders stop changing (a fixed wait flaked when
+    // the whole suite ran in parallel on a busy machine).
+    let previous = -1;
+    for (let attempt = 0; attempt < 20 && renders !== previous; attempt += 1) {
+      previous = renders;
+      await wait(300);
+    }
     const settled = renders;
     await wait(2_500);
     renderer.unmount();

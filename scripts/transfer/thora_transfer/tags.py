@@ -100,7 +100,10 @@ def _parse_year(text: str | None) -> int | None:
     return year if 1000 <= year <= 2999 else None
 
 
-def read_tags(path: Path) -> TagInfo:
+def read_tags(path) -> TagInfo:
+    """`path` is a Path, or a file object for a zip member (mutagen only; ffprobe needs a path)."""
+    if not isinstance(path, Path):
+        return _read_with_mutagen(path) if HAVE_MUTAGEN else TagInfo(error="no tag reader for archive members")
     if HAVE_MUTAGEN:
         info = _read_with_mutagen(path)
         if info.error is None:
@@ -112,9 +115,9 @@ def read_tags(path: Path) -> TagInfo:
     return _read_with_ffprobe(path)
 
 
-def _read_with_mutagen(path: Path) -> TagInfo:
+def _read_with_mutagen(path) -> TagInfo:
     try:
-        audio = mutagen.File(str(path), easy=True)
+        audio = mutagen.File(str(path) if isinstance(path, Path) else path, easy=True)
     except Exception as error:  # mutagen raises many types on bad files
         return TagInfo(error=f"mutagen: {type(error).__name__}: {error}"[:300])
     if audio is None:

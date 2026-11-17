@@ -14,6 +14,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from .merged import build_merged
 from .. import classify as cls
 from ..config import BUILTIN_EXCLUDES, Config
 from ..inventory import _is_excluded
@@ -217,6 +218,39 @@ def _is_album_list(source: PlaylistSource, parsed: ParsedPlaylist) -> bool:
     return bool(locations) and all(location and "/" not in location and "\\" not in location for location in locations)
 
 
+SAME_RECORDING_TOLERANCE_MS = 2_000
+
+
+def _distinct_recordings(rows: list[sqlite3.Row]) -> tuple[list[str], int]:
+    """A folder's file names, sorted, with each song listed once.
+
+    Downloaders leave the same song twice in one folder ("X.mp3" and "X__2.mp3", often at
+    different bitrates). Files with the same artist and title tags and durations within 2 s are
+    one song; the best copy (highest bitrate, then largest) takes the first copy's place.
+    Files without both tags are always kept."""
+    ordered = sorted(rows, key=lambda row: row["rel_path"].rpartition("/")[2].casefold())
+    chosen: list[sqlite3.Row] = []
+    groups: dict[tuple[str, str], list[int]] = {}
+    for row in ordered:
+        title = (row["title"] or "").strip().casefold()
+        artist = (row["artist"] or "").strip().casefold()
+        if title and artist:
+            slots = groups.setdefault((artist, title), [])
+            match = next(
+                (slot for slot in slots
+                 if abs((chosen[slot]["duration_ms"] or 0) - (row["duration_ms"] or 0)) <= SAME_RECORDING_TOLERANCE_MS),
+                None,
+            )
+            if match is not None:
+                best = chosen[match]
+                if ((row["bitrate"] or 0), row["size"]) > ((best["bitrate"] or 0), best["size"]):
+                    chosen[match] = row
+                continue
+            slots.append(len(chosen))
+        chosen.append(row)
+    return [row["rel_path"].rpartition("/")[2] for row in chosen], len(ordered) - len(chosen)
+
+
 def folder_playlists(config: Config, conn: sqlite3.Connection) -> list[tuple[PlaylistSource, ParsedPlaylist, str]]:
     """[playlists] folder_playlists: each matching folder that has audio but no playlist file becomes a playlist."""
     found: list[tuple[PlaylistSource, ParsedPlaylist, str]] = []
@@ -227,18 +261,23 @@ def folder_playlists(config: Config, conn: sqlite3.Connection) -> list[tuple[Pla
         except Exception:
             print(f"[playlists] folder_playlists: unknown source in {spec!r}", file=sys.stderr)
             continue
-        audio: dict[str, list[str]] = {}
+        audio: dict[str, list[sqlite3.Row]] = {}
         has_playlist: set[str] = set()
-        for row in conn.execute("SELECT rel_path, kind FROM files WHERE source = ?", (label,)):
-            folder, _, name = row["rel_path"].rpartition("/")
+        for row in conn.execute(
+            "SELECT rel_path, kind, title, artist, duration_ms, bitrate, size FROM files WHERE source = ?", (label,)
+        ):
+            folder = row["rel_path"].rpartition("/")[0]
             if row["kind"] == cls.KIND_AUDIO:
-                audio.setdefault(folder, []).append(name)
+                audio.setdefault(folder, []).append(row)
             elif row["kind"] == cls.KIND_PLAYLIST:
                 has_playlist.add(folder)
         for folder in sorted(audio, key=str.casefold):
             if folder in has_playlist or not fnmatch.fnmatchcase(folder.casefold(), pattern.casefold()):
                 continue
-            entries = [PlaylistEntry(index=i, location=name) for i, name in enumerate(sorted(audio[folder], key=str.casefold))]
+            names, collapsed = _distinct_recordings(audio[folder])
+            if collapsed:
+                print(f"[playlists] {label}/{folder or '.'}: {collapsed} second copy(ies) of the same song left out")
+            entries = [PlaylistEntry(index=i, location=name) for i, name in enumerate(names)]
             name = display_name if display_name and not any(ch in pattern for ch in "*?[") else \
                 folder.rpartition("/")[2].replace("_", " ").strip()
             key = f"folder:{label}/{folder}"
@@ -404,6 +443,12 @@ def run_playlists(
             writer = csv.DictWriter(handle, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(rows)
+
+    for merged in config.merged_playlists:
+        built = build_merged(conn, out_dir, merged.name, merged.sources, merged.order_logs)
+        if built:
+            out_file, songs, newer = built
+            print(f"[playlists] merged {merged.name!r}: {songs} songs ({newer} newer than the order logs) -> {out_file.name}")
 
     summary = {"totals": totals, "rules": rules, "not_playlists": not_playlists, "playlists": per_playlist,
                "out_dir": str(out_dir), "report_dir": str(report_dir)}

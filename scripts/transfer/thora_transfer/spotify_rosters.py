@@ -73,6 +73,28 @@ def parse_total(page: str) -> int | None:
     return int(items.group(1).replace(",", "")) if items else None
 
 
+def discover_user_playlists(rosters_json: Path, user_id: str) -> list[str]:
+    """Add playlists listed on a user's public profile that the roster file doesn't know yet.
+
+    The server-rendered profile shows only some public playlists (recent ones, about 10), so
+    this catches new playlists without being a complete listing. Returns the newly added IDs.
+    """
+    page = _get(f"https://open.spotify.com/user/{user_id}", user_agent=PAGE_USER_AGENT)
+    found = list(dict.fromkeys(re.findall(r"/playlist/([A-Za-z0-9]{22})", page)))
+    data = json.loads(rosters_json.read_text(encoding="utf-8"))
+    known = {entry.get("spotify_id") for entry in data["playlists"]}
+    added = [playlist_id for playlist_id in found if playlist_id not in known]
+    for playlist_id in added:
+        data["playlists"].append({"name": playlist_id, "spotify_id": playlist_id,
+                                  "url": f"https://open.spotify.com/playlist/{playlist_id}",
+                                  "nas_folder": None, "nas_tracks": 0, "roster_2025_07_18": None,
+                                  "discovered_from_profile": user_id})
+    if added:
+        rosters_json.write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
+    print(f"[spotify] profile {user_id}: {len(found)} playlist(s) shown, {len(added)} new")
+    return added
+
+
 def _safe_name(name: str) -> str:
     cleaned = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "_", name).strip(" .")
     return cleaned[:120] or "playlist"
@@ -121,6 +143,12 @@ def fetch_rosters(rosters_json: Path, out_dir: Path, delay: float = 1.5, only: l
             print(f"  [{number}/{len(wanted)}] {known_name}: UNAVAILABLE ({error})", file=sys.stderr)
         results.append(row)
         time.sleep(delay)
+    # Merge with earlier runs (a partial --only run must not drop the other playlists' results).
+    summary_path = out_dir.parent / "fetch-summary.json"
+    if summary_path.exists():
+        fetched_now = {row["id"] for row in results}
+        earlier = json.loads(summary_path.read_text(encoding="utf-8")).get("playlists", [])
+        results = [row for row in earlier if row.get("id") not in fetched_now] + results
     summary = {
         "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "ok": sum(1 for r in results if r["status"] == "ok"),
@@ -129,7 +157,7 @@ def fetch_rosters(rosters_json: Path, out_dir: Path, delay: float = 1.5, only: l
         "cut_short": [{"name": r["name"], "missing": r["missing_beyond_embed"]} for r in results if r.get("missing_beyond_embed")],
         "playlists": results,
     }
-    (out_dir.parent / "fetch-summary.json").write_text(json.dumps(summary, indent=1, ensure_ascii=False), encoding="utf-8")
+    summary_path.write_text(json.dumps(summary, indent=1, ensure_ascii=False), encoding="utf-8")
     print(f"[spotify] {summary['ok']} recovered ({summary['tracks']} tracks), {summary['unavailable']} unavailable, "
           f"{len(summary['cut_short'])} longer than the embed's {EMBED_LIMIT}-track view")
     return summary

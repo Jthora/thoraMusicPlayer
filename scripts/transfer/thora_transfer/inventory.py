@@ -13,6 +13,7 @@ from . import classify as cls
 from .config import BUILTIN_EXCLUDES, Config, Source
 from .state import finish_run, start_run
 from .tags import read_tags
+from .source_io import is_archive, iter_archive_members, source_available, tag_target
 
 COMMIT_EVERY = 500
 
@@ -25,6 +26,9 @@ def _is_excluded(rel_path: str, patterns: list[str]) -> bool:
 def iter_source_files(source: Source):
     """Yield (rel_path, DirEntry) for every non-excluded regular file. Never follows symlinks."""
     patterns = list(BUILTIN_EXCLUDES) + list(source.exclude)
+    if is_archive(source):
+        yield from iter_archive_members(source, patterns, _is_excluded)
+        return
     root = source.path
     errors: list[str] = []
 
@@ -68,7 +72,7 @@ def run_inventory(config: Config, conn: sqlite3.Connection, only_sources: list[s
         raise SystemExit("No sources selected/configured.")
 
     for source in selected:
-        if not source.path.is_dir():
+        if not source_available(source):
             print(f"[inventory] SKIP {source.label}: {source.path} is not mounted/readable", file=sys.stderr)
             summary["sources"][source.label] = {"error": "not mounted"}
             continue
@@ -105,7 +109,7 @@ def run_inventory(config: Config, conn: sqlite3.Connection, only_sources: list[s
             else:
                 tag = None
                 if kind in (cls.KIND_AUDIO, cls.KIND_UNSUPPORTED):
-                    tag = read_tags(source.path / rel_path)
+                    tag = read_tags(tag_target(source, rel_path, stat.st_size))
                     if tag.error:
                         tag_errors += 1
                 values = (

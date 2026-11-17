@@ -372,6 +372,8 @@ type MediaLibraryModule = {
   getUserPlaylistEntries: (playlistId: number) => Promise<UserPlaylistTrack[]>;
   addTrackToUserPlaylist: (playlistId: number, track: MediaStoreTrack) => Promise<UserPlaylistTrack[]>;
   removeTrackFromUserPlaylist: (playlistId: number, position: number) => Promise<UserPlaylistTrack[]>;
+  /** Deletes a playlist (not its songs); resolves with the remaining playlists. */
+  deleteUserPlaylist: (playlistId: number) => Promise<UserPlaylist[]>;
   moveTrackInUserPlaylist: (
     playlistId: number,
     fromPosition: number,

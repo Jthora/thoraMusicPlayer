@@ -9,6 +9,7 @@ import {
   UnifiedSearchScope,
   UserPlaylist,
 } from '../../native/modules';
+import {compareText} from './sortKeys';
 import {AppButton} from '../../ui/components/AppButton';
 import {SectionCard} from '../../ui/components/SectionCard';
 import {StatusChip} from '../../ui/components/StatusChip';
@@ -160,8 +161,8 @@ export function SearchBrowsePanel(props: SearchBrowsePanelProps) {
       directTracks.push(track);
     });
 
-    const directories = [...directoryMap.values()].sort((left, right) => left.name.localeCompare(right.name));
-    const tracks = [...directTracks].sort((left, right) => left.title.localeCompare(right.title));
+    const directories = [...directoryMap.values()].sort((left, right) => compareText(left.name, right.name));
+    const tracks = [...directTracks].sort((left, right) => compareText(left.title, right.title));
 
     return {
       directories,

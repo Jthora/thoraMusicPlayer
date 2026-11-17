@@ -672,17 +672,36 @@ def open_playlist(adb: Adb, name: str) -> list[Node]:
         time.sleep(1.2)
     tap(adb, library_pill(adb, "PLAYLISTS"))
     time.sleep(1.2)
-    for _ in range(80):
+    # The list comes back where it was last left, so search down to the end, then back up.
+    downward = True
+    previous: list[str] = []
+    for _ in range(120):
         nodes = ui_nodes(adb)
         node = find(nodes, text=name)
         if node:
             tap(adb, node)
             time.sleep(2)
             return ui_nodes(adb)
-        rows = [n for n in nodes if n.text.startswith("Tracks:")]
-        top = min((n.bounds[1] for n in rows), default=300)
-        bottom = max((n.bounds[3] for n in rows), default=900)
-        adb.shell(f"input swipe 360 {bottom - 20} 360 {top + 20} 500")
+        shown = [n.text for n in nodes if n.text and visible(n)]
+        if shown == previous:
+            if not downward:
+                break
+            downward = False
+        previous = shown
+        # Swipe inside the list, between fully shown rows (clipped rows report bounds outside it),
+        # and never just a few pixels: a short swipe is a tap and would open a playlist.
+        header = find(nodes, text="Playlists")
+        floor = (header.bounds[3] if header else 160) + 30
+        tops = [n.bounds[1] for n in nodes if re.match(r"^(Tracks: \d+|\d+ songs?)$", n.text)
+                and n.bounds[1] > floor and n.bounds[3] - n.bounds[1] >= 30]
+        top = max(floor, min(tops, default=floor))
+        bottom = max(tops, default=top + 450)
+        if bottom - top < 300:
+            bottom = top + 450
+        # Move ~60% of the list per swipe so consecutive screens overlap (no row skipped half-shown).
+        span = int((bottom - top) * 0.6)
+        start, end = (bottom, bottom - span) if downward else (top, top + span)
+        adb.shell(f"input swipe 360 {start} 360 {end} 600")
         time.sleep(0.7)
     raise CheckFailed(f"playlist {name!r} not found")
 
@@ -1063,7 +1082,8 @@ def cmd_perf(args, adb: Adb) -> int:
                 open_playlist(adb, args.playlist)
                 tap(adb, find(ui_nodes(adb), rid="playlist-play-all"))
                 wait_session(adb, "playlist playing", lambda s: s.playing)
-            except CheckFailed:
+            except CheckFailed as error:
+                print(f"[perf] playlist {args.playlist!r} unavailable ({error}); using the test fixtures", flush=True)
                 play_fixture(adb, 1)
             adb.key("pause")
             time.sleep(1.5)

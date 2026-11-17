@@ -33,6 +33,14 @@ extra_dirs = []
 auto_accept_score = 0.85
 review_score = 0.60
 
+# Optional: a playlist merged from other generated playlists. Each song once (playlists listed
+# first win, so list the one with the best copies first), ordered by download logs that list songs
+# newest first (SpotifyBackerUpper's logs/successful_downloads.txt). Songs in no log come first.
+# [[playlists.merged]]
+# name = "Liked Songs"
+# from = ["Liked Songs (Mar 2026)", "Liked Songs (Jul 2025)"]
+# order_logs = ["/Volumes/NAS/Music/SpotifyBackerUpper/liked_songs/logs/successful_downloads.txt"]
+
 # Old absolute prefixes found inside legacy playlists -> "<label>/<subpath>" in the new layout.
 [[playlists.remap]]
 from = "/home/jono/workspace/github/spotifyBackerUpper/"

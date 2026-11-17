@@ -90,7 +90,49 @@
   - UI:
     - Scroll is 0.1% janky (p90 34 ms).
     - Tab switches are still p90 ~117 ms. Pre-mounting tabs hidden after startup made it worse (reverted), so the remaining cost is per-switch work, likely the effects that re-run when a tab is revealed (e.g., the LIBRARY playlist refresh). Next: audit those effects and profile with a profileable build plus the Hermes sampling profiler.
-- **Test leftovers on the phone:** `Music/Thora-test` (12 fixtures + 5 test playlists) and 5 test playlists in the app. Remove them with `thora_devicetest.py cleanup` once testing is finished.
+- **Library UX pass (2026-11-10, after user feedback that folders were mostly one-song folders, Liked Songs was missing, and albums and artists looked unindexed):**
+  - Second push: 842 files / 8.6 GB (the `liked2026` and `downloads2024` zip sources, streamed one member at a time), 0 failures. The phone has 5,795 audio files under `Music/Thora`.
+  - FOLDERS is now a tree (`folderTree.ts`):
+    - per-branch song totals
+    - single-folder chains skipped
+    - ↑ up and a breadcrumb
+    - PLAY ALL / SHUFFLE of a whole branch
+  - ALBUMS and ARTISTS are built from the songs (`libraryGroups.ts`):
+    - Albums are one per name (case- and space-insensitive) and credited to the main artist or "Various artists".
+    - "A feat. B" and ID3 "A/B" count for both A and B.
+    - Untagged songs are kept together at the end; "The" is ignored when sorting.
+    - Album and artist pages get PLAY ALL / SHUFFLE.
+  - Every library list remembers its scroll position (`useRememberedScroll`), and each tab has its own scroll view. This fixes the queued bug: back from a playlist lands where you were; verified on the A3.
+  - Playlists sort A–Z by default, with a RECENT toggle: a bulk import stamps every playlist with the same time, which made recency look random. Playlists can now be deleted (playlist page → ✕ DELETE; the songs stay).
+  - Duplicate copies of a song:
+    - The library index hides files with the same title, artist and exact duration.
+    - It now keeps the **bigger** copy: 569 songs switched to the 320 kbps copy from the Mar 2026 zip. Play counts move with them.
+    - Hidden copies are remembered in `track_copies` (schema v5), so a playlist that names a hidden copy still resolves by exact path.
+  - thora-transfer folder playlists list each song once, keeping the best copy. The Mar 2026 zip holds ~430 songs twice (`X.mp3` 320 kbps + `X__2.mp3`, the same file as the Jul 2025 copy); 578 second copies are left out.
+  - Re-import: all 157 playlists, 8,120 of 8,146 entries resolved by exact path, 0 unresolved (26 are songs a playlist lists twice). Liked Songs (Jul 2025) 1,320 / 1,320, Liked Songs (Mar 2026) 1,562 / 1,562.
+  - Speed:
+    - cold start median 536 ms (was 944 ms after the full-library load)
+    - tab switch p90 32–81 ms (was ~117 ms)
+    - scroll p90 11–12 ms
+    - PSS 115–170 MB
+    - start latency 236 ms (whole library) and 278 ms (Fusion Girl)
+  - The test fixtures (`Music/Thora-test`) were removed from the phone with `thora_devicetest.py cleanup`. The `perf` start-latency step now opens a real playlist ("Fusion Girl").
+
+- **Liked Songs + list speed (2026-11-10, after user feedback that the music looked capped and the playlist list filled in slowly):**
+  - No library cap remained, but Search returned 30 songs (100 at most). It now returns 500 by default and 2,000 at most.
+  - **Liked Songs** is one playlist, built by thora-transfer's new `[[playlists.merged]]` option. It merges the Mar 2026 and Jul 2025 liked-songs playlists, keeps each song once (best copy) and follows Spotify's liked order (newest first, from SpotifyBackerUpper's download log). It has 1,562 songs, all resolved by exact path. It is pinned first in PLAYLISTS (♥) and is a tile on HOME.
+    - Spotify reported 1,561 liked songs in Jul 2025. The Mar 2026 download holds every Jul 2025 song plus 212 later ones.
+    - 15 of the 20 songs that failed to download in 2025 are nowhere on the NAS.
+  - The slow playlist list was a JS-thread stall, not lazy loading. The Hermes sampling profiler (`ProfilerReceiver`, adb-only via the DUMP permission) showed ~4 s at 96% JS:
+    - What it was doing: re-sorting all 5,211 songs with `localeCompare`/`Intl.Collator`, which is very slow under Hermes, and restarting each time a scroll update interrupted the deferred library render.
+    - Fixes:
+      - cached sort keys with plain comparisons (`sortKeys.ts`)
+      - cached track numbers
+      - a refresh that changed nothing keeps the old song array, so nothing is re-derived after each start/resume sync
+    - Flinging the list now leaves the JS thread idle except for row rendering.
+  - The library tab is a flex column with no outer ScrollView. A disabled Android ScrollView still accepted nested scroll and slid the whole library away at the end of a fling. Lists now fill their card down to the mini player.
+  - Opening a playlist could hang on "Loading…" forever when the playlist list refreshed during the open (always from the Home tile). They shared one request counter; entry loads now have their own (regression test `userPlaylistsOpenRace`). Loading shows a spinner with the song count.
+  - Not done: downloading missing tracks with SpotifyBackerUpper's YouTube-based downloader (declined: ripping copyrighted audio). The public-embed roster tool also can't see Liked Songs, which is private.
 
 ## Context
 - **Why:** the code review found the app can't yet act as a real player: a runaway render/sync loop (measured: 1,640 commits + 94 full library syncs in 2 s idle), a broken playback engine (resume restarts the track, seek/repeat/shuffle are display-only, system controls don't change audio), a library capped at 100 songs, folder (SAF) indexing that throws `Map already consumed`, and a playlist importer that never actually creates a playlist.

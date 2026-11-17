@@ -13,6 +13,7 @@ from . import classify as cls
 from .adb import Adb, AdbError, list_devices
 from .config import Config, ConfigError, load_config
 from .inventory import iter_source_files
+from .source_io import open_source, source_available
 from .tags import FFPROBE, HAVE_MUTAGEN
 
 
@@ -57,7 +58,7 @@ def run_doctor(config_path: str | None) -> bool:
 
     if config:
         for source in config.sources:
-            mounted = source.path.is_dir()
+            mounted = source_available(source)
             _line(True if mounted else None, f"source {source.label}", f"{source.path} {'mounted' if mounted else 'not mounted yet'}")
     print("ready." if healthy else "not ready: fix FAIL items above.")
     return healthy
@@ -84,7 +85,7 @@ def run_nas_check(config: Config, sample_mb: int = 200) -> bool:
     all_ok = True
     for source in config.sources:
         print(f"source {source.label}: {source.path}")
-        if not source.path.is_dir():
+        if not source_available(source):
             all_ok &= _line(False, "mounted", "path missing. Mount the share (Finder: Go > Connect to Server > smb://HOST/SHARE)")
             continue
         info = _mount_info(source.path)
@@ -113,7 +114,7 @@ def run_nas_check(config: Config, sample_mb: int = 200) -> bool:
             if rel_path is None or cls.classify(rel_path) != cls.KIND_AUDIO:
                 continue
             try:
-                with (source.path / rel_path).open("rb") as handle:
+                with open_source(source, rel_path) as handle:
                     while read < budget:
                         block = handle.read(4 * 1024 * 1024)
                         if not block:

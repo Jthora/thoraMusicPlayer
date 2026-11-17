@@ -1,5 +1,5 @@
 import {Activity, ReactNode, memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState} from 'react';
-import {ActivityIndicator, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import {ActivityIndicator, Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {FlashList} from '@shopify/flash-list';
 
@@ -11,11 +11,30 @@ import {CompactSongRow} from '../features/library/CompactSongRow';
 import {useBackgroundSyncOrchestrator} from '../features/library/useBackgroundSyncOrchestrator';
 import {useMediaStoreScan} from '../features/library/useMediaStoreScan';
 import {useSafRootScan} from '../features/library/useSafRootScan';
-import {useSearchBrowse} from '../features/library/useSearchBrowse';
+import {useSearchBrowse, FULL_LIBRARY_LIMIT} from '../features/library/useSearchBrowse';
 import {useAudioPermission} from '../features/permissions/useAudioPermission';
 import {NowPlayingPanel} from '../features/playback/NowPlayingPanel';
 import {useNowPlayingState} from '../features/playback/useNowPlayingState';
 import {usePlaybackService} from '../features/playback/usePlaybackService';
+import {
+  FolderNode,
+  FolderTree,
+  breadcrumb,
+  buildFolderTree,
+  compactStart,
+  countSongFolders,
+  folderSongs,
+  upFrom,
+} from '../features/library/folderTree';
+import {
+  LibraryAlbum,
+  LibraryArtist,
+  albumKey,
+  artistKey,
+  groupAlbums,
+  groupArtists,
+} from '../features/library/libraryGroups';
+import {compareText, compareTracksByTrackThenTitle} from '../features/library/sortKeys';
 import {LivePosition} from '../features/playback/LivePosition';
 import {PlaylistImportPanel} from '../features/playlists/PlaylistImportPanel';
 import {usePlaylistImport} from '../features/playlists/usePlaylistImport';
@@ -37,6 +56,7 @@ import {StatusChip} from '../ui/components/StatusChip';
 import {colors, radii, spacing} from '../ui/theme';
 import {baseThemePresets, fontOptions, highlightThemePresets, ThemeColors, useTheme} from '../ui/themeRuntime';
 import {kvStore} from '../platform/storage/kvStore';
+import {useRememberedScroll} from '../platform/hooks/useRememberedScroll';
 import {useStableCallback} from '../platform/hooks/useStableCallback';
 import {AnySupportedTabKey, resolveAppTabKey} from './tabCompatibility';
 
@@ -114,76 +134,20 @@ function pseudoPopularityScore(track: MediaStoreTrack) {
   return durationScore + sizeScore;
 }
 
-function deepestFolderName(path: string): string {
-  const segments = path
-    .split('/')
-    .map(item => item.trim())
-    .filter(Boolean);
+const EMPTY_TRACKS: MediaStoreTrack[] = [];
+const LIKED_SONGS_NAME = 'liked songs';
 
-  return segments[segments.length - 1] ?? path;
+/** The playlist named "Liked Songs" (any case): pinned first in the list and one tap away on Home. */
+function isLikedSongs(playlist: {name: string}): boolean {
+  return playlist.name.trim().toLowerCase() === LIKED_SONGS_NAME;
 }
 
-function parseTrackNumber(text: string): number | null {
-  const cleaned = text.trim();
-  if (!cleaned) {
-    return null;
-  }
-
-  const patterns = [
-    /^(\d{1,3})\s*[.\-_:)]\s*/,
-    /^(\d{1,3})\s+/,
-    /^track\s*(\d{1,3})\b/i,
-    /^no\.?\s*(\d{1,3})\b/i,
-    /\b(\d{1,3})\s*\/\s*\d{1,3}\b/,
-  ];
-
-  for (const pattern of patterns) {
-    const match = cleaned.match(pattern);
-    if (!match) {
-      continue;
-    }
-
-    const parsed = Number(match[1]);
-    if (Number.isInteger(parsed) && parsed > 0) {
-      return parsed;
-    }
-  }
-
-  return null;
+function songCount(count: number): string {
+  return `${count} song${count === 1 ? '' : 's'}`;
 }
 
-function inferredTrackOrder(track: MediaStoreTrack): number | null {
-  const displayNameWithoutExtension = track.displayName.replace(/\.[A-Za-z0-9]{2,5}$/, '');
-  const fromDisplayName = parseTrackNumber(displayNameWithoutExtension);
-  if (fromDisplayName !== null) {
-    return fromDisplayName;
-  }
-
-  return parseTrackNumber(track.title);
-}
-
-function compareTracksByTrackThenTitle(left: MediaStoreTrack, right: MediaStoreTrack): number {
-  const leftOrder = inferredTrackOrder(left);
-  const rightOrder = inferredTrackOrder(right);
-
-  if (leftOrder !== null && rightOrder !== null && leftOrder !== rightOrder) {
-    return leftOrder - rightOrder;
-  }
-
-  if (leftOrder !== null && rightOrder === null) {
-    return -1;
-  }
-
-  if (leftOrder === null && rightOrder !== null) {
-    return 1;
-  }
-
-  const titleCompare = left.title.localeCompare(right.title, undefined, {numeric: true, sensitivity: 'base'});
-  if (titleCompare !== 0) {
-    return titleCompare;
-  }
-
-  return left.uri.localeCompare(right.uri);
+function albumCountLabel(count: number): string {
+  return `${count} album${count === 1 ? '' : 's'}`;
 }
 
 function runWhenIdle(callback: () => void): {cancel: () => void} {
@@ -281,6 +245,8 @@ type StatusChipTone = React.ComponentProps<typeof StatusChip>['tone'];
 
 type HomeTabSceneProps = {
   styles: ProductionStyles;
+  likedSongs: {id: number; entryCount: number} | null;
+  onOpenLikedSongs: () => void;
   loadingIndicatorColor: string;
   totalTracks: number;
   folderCount: number;
@@ -310,6 +276,8 @@ const HOME_FEED_ITEMS: ReadonlyArray<{key: HomeFeedTab; label: string}> = [
 
 const HomeTabScene = memo(function HomeTabScene({
   styles,
+  likedSongs,
+  onOpenLikedSongs,
   loadingIndicatorColor,
   totalTracks,
   folderCount,
@@ -381,6 +349,21 @@ const HomeTabScene = memo(function HomeTabScene({
           </View>
         ) : null}
       </View>
+
+      {likedSongs ? (
+        <Pressable
+          accessibilityRole="button"
+          testID="home-liked-songs"
+          onPress={onOpenLikedSongs}
+          style={({pressed}) => [styles.likedSongsTile, pressed ? styles.libraryPillPressed : null]}>
+          <Text style={styles.likedSongsTileIcon}>♥</Text>
+          <View style={styles.likedSongsTileText}>
+            <Text style={styles.trackTitle}>Liked Songs</Text>
+            <Text style={styles.trackMeta}>{songCount(likedSongs.entryCount)}</Text>
+          </View>
+          <Text style={styles.likedSongsTileChevron}>›</Text>
+        </Pressable>
+      ) : null}
 
       <SectionCard title="Music" subtitle="Browse quick feeds from your library.">
         <View style={styles.libraryPillRow}>
@@ -688,7 +671,8 @@ const CreateTabScene = memo(function CreateTabScene({
   );
 });
 
-type FolderGroupRow = {path: string; trackCount: number; sampleArtist: string};
+/** A row in the folder browser: a sub-folder or a song directly in the current folder. */
+type FolderRow = {kind: 'folder'; node: FolderNode} | {kind: 'track'; track: MediaStoreTrack};
 
 type YourLibraryTabSceneProps = {
   styles: ProductionStyles;
@@ -707,22 +691,24 @@ type YourLibraryTabSceneProps = {
   onPlayTrackFromList: (trackList: MediaStoreTrack[], trackUri: string, sourceLabel: string) => void;
   selectedAlbumName: string | null;
   onSelectAlbumName: (value: string | null) => void;
-  selectedAlbumSongs: MediaStoreTrack[];
-  albums: ReturnType<typeof useSearchBrowse>['albums'];
+  selectedAlbum: LibraryAlbum | null;
+  albums: LibraryAlbum[];
   selectedArtistName: string | null;
   onSelectArtistName: (value: string | null) => void;
-  selectedArtistSongs: MediaStoreTrack[];
-  artists: ReturnType<typeof useSearchBrowse>['artists'];
+  selectedArtist: LibraryArtist | null;
+  artists: LibraryArtist[];
   selectedFolderPath: string | null;
   onSelectFolderPath: (value: string | null) => void;
-  selectedFolderSongs: MediaStoreTrack[];
-  folderGroups: FolderGroupRow[];
+  folderTree: FolderTree;
+  onShuffleTracks: (tracks: MediaStoreTrack[], sourceLabel: string) => void;
   playlists: ReturnType<typeof useUserPlaylists>['playlists'];
   onSelectPlaylist: (playlistId: number) => void;
   openPlaylistName: string | null;
   openPlaylistSongs: MediaStoreTrack[];
   isOpenPlaylistLoading: boolean;
+  openPlaylistEntryCount: number;
   onClosePlaylist: () => void;
+  onDeletePlaylist: () => void;
   onShufflePlaylist: () => void;
 };
 
@@ -760,24 +746,63 @@ const YourLibraryTabScene = memo(function YourLibraryTabScene({
   onPlayTrackFromList,
   selectedAlbumName,
   onSelectAlbumName,
-  selectedAlbumSongs,
+  selectedAlbum,
   albums,
   selectedArtistName,
   onSelectArtistName,
-  selectedArtistSongs,
+  selectedArtist,
   artists,
   selectedFolderPath,
   onSelectFolderPath,
-  selectedFolderSongs,
-  folderGroups,
+  folderTree,
+  onShuffleTracks,
   playlists,
   onSelectPlaylist,
   openPlaylistName,
   openPlaylistSongs,
   isOpenPlaylistLoading,
+  openPlaylistEntryCount,
   onClosePlaylist,
+  onDeletePlaylist,
   onShufflePlaylist,
 }: YourLibraryTabSceneProps) {
+  // Every list remembers where it was scrolled (back from a playlist/album/folder lands in place).
+  const allSongsScroll = useRememberedScroll<MediaStoreTrack>(`library:allSongs:${allSongsSortMode}`);
+  const albumsScroll = useRememberedScroll<YourLibraryTabSceneProps['albums'][number]>('library:albums');
+  const albumSongsScroll = useRememberedScroll<MediaStoreTrack>(`library:album:${selectedAlbumName ?? ''}`);
+  const artistsScroll = useRememberedScroll<YourLibraryTabSceneProps['artists'][number]>('library:artists');
+  const artistSongsScroll = useRememberedScroll<MediaStoreTrack>(`library:artist:${selectedArtistName ?? ''}`);
+  // A bulk import gives every playlist the same "updated" time, so recency alone reads as random:
+  // A–Z is the default, RECENT is one tap away.
+  const [playlistSort, setPlaylistSort] = useState<'name' | 'recent'>('name');
+  const sortedPlaylists = useMemo(
+    () =>
+      [...(playlistSort === 'recent' ? playlists : [...playlists].sort((left, right) => compareText(left.name, right.name)))]
+        .sort((left, right) => Number(isLikedSongs(right)) - Number(isLikedSongs(left))),
+    [playlists, playlistSort],
+  );
+  const playlistsScroll = useRememberedScroll<YourLibraryTabSceneProps['playlists'][number]>(`library:playlists:${playlistSort}`);
+  const playlistSongsScroll = useRememberedScroll<MediaStoreTrack>(`library:playlist:${openPlaylistName ?? ''}`);
+
+  const selectedAlbumSongs = selectedAlbum?.tracks ?? EMPTY_TRACKS;
+  const selectedArtistSongs = selectedArtist?.tracks ?? EMPTY_TRACKS;
+  const albumLabel = `library:album:${selectedAlbumName ?? ''}`;
+  const artistLabel = `library:artist:${selectedArtistName ?? ''}`;
+
+  const startFolder = useMemo(() => compactStart(folderTree.root), [folderTree]);
+  const currentFolder = (selectedFolderPath !== null ? folderTree.byPath.get(selectedFolderPath) : undefined) ?? startFolder;
+  const canGoUpFolder = currentFolder.path !== startFolder.path;
+  const currentFolderSongs = useMemo(() => folderSongs(currentFolder), [currentFolder]);
+  const folderRows = useMemo<FolderRow[]>(
+    () => [
+      ...currentFolder.children.map(node => ({kind: 'folder' as const, node})),
+      ...currentFolder.tracks.map(track => ({kind: 'track' as const, track})),
+    ],
+    [currentFolder],
+  );
+  const folderScroll = useRememberedScroll<FolderRow>(`library:folder:${currentFolder.path}`);
+  const folderLabel = `library:folder:${currentFolder.path}`;
+
   return (
     <View style={styles.libraryScene}>
       <ScrollView
@@ -809,6 +834,7 @@ const YourLibraryTabScene = memo(function YourLibraryTabScene({
 
       {libraryView === 'allSongs' && (
         <SectionCard
+          fill
           title="All Songs"
           titleRight={(
             <Pressable
@@ -843,7 +869,9 @@ const YourLibraryTabScene = memo(function YourLibraryTabScene({
             <Text style={styles.meta}>No songs available yet. Library sync will populate this list automatically.</Text>
           ) : (
             <FlashList
-              data={sortedAllSongs.slice(0, 80)}
+              key={`library:allSongs:${allSongsSortMode}`}
+              {...allSongsScroll}
+              data={sortedAllSongs}
               keyExtractor={(item, index) => `library-all-song-${item.uri}-${String(index)}`}
               renderItem={({item}) => (
                 <CompactSongRow
@@ -864,6 +892,7 @@ const YourLibraryTabScene = memo(function YourLibraryTabScene({
 
       {libraryView === 'albums' && (
         <SectionCard
+          fill
           title={selectedAlbumName !== null ? 'Album' : 'Albums'}
           titleRight={selectedAlbumName !== null ? (
             <Pressable
@@ -874,11 +903,32 @@ const YourLibraryTabScene = memo(function YourLibraryTabScene({
           ) : undefined}>
           {selectedAlbumName !== null ? (
             <>
-              <Text style={styles.librarySelectionName}>{selectedAlbumName}</Text>
+              <Text style={styles.librarySelectionName}>{selectedAlbum?.album ?? selectedAlbumName}</Text>
+              <Text style={styles.meta}>{selectedAlbum ? `${selectedAlbum.sampleArtist} • ${songCount(selectedAlbum.trackCount)}` : ''}</Text>
+              {selectedAlbumSongs.length > 0 ? (
+                <View style={styles.libraryTopPillRow}>
+                  <Pressable
+                    accessibilityRole="button"
+                    testID="album-play-all"
+                    onPress={() => onPlayTrackFromList(selectedAlbumSongs, selectedAlbumSongs[0].uri, albumLabel)}
+                    style={({pressed}) => [styles.libraryPill, styles.libraryPillActive, pressed ? styles.libraryPillPressed : null]}>
+                    <Text style={[styles.libraryPillLabel, styles.libraryPillLabelActive]}>▶ PLAY ALL</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    testID="album-shuffle"
+                    onPress={() => onShuffleTracks(selectedAlbumSongs, albumLabel)}
+                    style={({pressed}) => [styles.libraryPill, styles.libraryPillInactive, pressed ? styles.libraryPillPressed : null]}>
+                    <Text style={[styles.libraryPillLabel, styles.libraryPillLabelInactive]}>↭ SHUFFLE</Text>
+                  </Pressable>
+                </View>
+              ) : null}
               {selectedAlbumSongs.length === 0 ? (
                 <Text style={styles.meta}>No songs found for this album.</Text>
               ) : (
                 <FlashList
+                  key={`library:album:${selectedAlbumName ?? ''}`}
+                  {...albumSongsScroll}
                   data={selectedAlbumSongs}
                   keyExtractor={(item, index) => `library-album-song-${item.uri}-${String(index)}`}
                   renderItem={({item}) => (
@@ -886,7 +936,7 @@ const YourLibraryTabScene = memo(function YourLibraryTabScene({
                       track={item}
                       isCurrent={currentTrackUri === item.uri}
                       isPlaying={isPlaying}
-                      onPlay={trackUri => onPlayTrackFromList(selectedAlbumSongs, trackUri, `library:album:${selectedAlbumName}`)}
+                      onPlay={trackUri => onPlayTrackFromList(selectedAlbumSongs, trackUri, albumLabel)}
                     />
                   )}
                   nestedScrollEnabled
@@ -900,15 +950,17 @@ const YourLibraryTabScene = memo(function YourLibraryTabScene({
             <Text style={styles.meta}>No albums available yet.</Text>
           ) : (
             <FlashList
+              key={'library:albums'}
+              {...albumsScroll}
               data={albums}
-              keyExtractor={(item, index) => `library-album-${item.album}-${String(index)}`}
+              keyExtractor={item => `library-album-${item.key}`}
               renderItem={({item}) => (
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => onSelectAlbumName(item.album)}
                   style={({pressed}) => [styles.trackRow, pressed ? styles.libraryPillPressed : null]}>
                   <Text style={styles.trackTitle} numberOfLines={1}>{item.album}</Text>
-                  <Text style={styles.trackMeta} numberOfLines={1}>{item.sampleArtist} • Tracks: {item.trackCount}</Text>
+                  <Text style={styles.trackMeta} numberOfLines={1}>{`${item.sampleArtist} • ${songCount(item.trackCount)}`}</Text>
                 </Pressable>
               )}
               nestedScrollEnabled
@@ -922,6 +974,7 @@ const YourLibraryTabScene = memo(function YourLibraryTabScene({
 
       {libraryView === 'artists' && (
         <SectionCard
+          fill
           title={selectedArtistName !== null ? 'Artist' : 'Artists'}
           titleRight={selectedArtistName !== null ? (
             <Pressable
@@ -932,11 +985,32 @@ const YourLibraryTabScene = memo(function YourLibraryTabScene({
           ) : undefined}>
           {selectedArtistName !== null ? (
             <>
-              <Text style={styles.librarySelectionName}>{selectedArtistName}</Text>
+              <Text style={styles.librarySelectionName}>{selectedArtist?.artist ?? selectedArtistName}</Text>
+              <Text style={styles.meta}>{selectedArtist ? `${albumCountLabel(selectedArtist.albumCount)} • ${songCount(selectedArtist.trackCount)}` : ''}</Text>
+              {selectedArtistSongs.length > 0 ? (
+                <View style={styles.libraryTopPillRow}>
+                  <Pressable
+                    accessibilityRole="button"
+                    testID="artist-play-all"
+                    onPress={() => onPlayTrackFromList(selectedArtistSongs, selectedArtistSongs[0].uri, artistLabel)}
+                    style={({pressed}) => [styles.libraryPill, styles.libraryPillActive, pressed ? styles.libraryPillPressed : null]}>
+                    <Text style={[styles.libraryPillLabel, styles.libraryPillLabelActive]}>▶ PLAY ALL</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    testID="artist-shuffle"
+                    onPress={() => onShuffleTracks(selectedArtistSongs, artistLabel)}
+                    style={({pressed}) => [styles.libraryPill, styles.libraryPillInactive, pressed ? styles.libraryPillPressed : null]}>
+                    <Text style={[styles.libraryPillLabel, styles.libraryPillLabelInactive]}>↭ SHUFFLE</Text>
+                  </Pressable>
+                </View>
+              ) : null}
               {selectedArtistSongs.length === 0 ? (
                 <Text style={styles.meta}>No songs found for this artist.</Text>
               ) : (
                 <FlashList
+                  key={`library:artist:${selectedArtistName ?? ''}`}
+                  {...artistSongsScroll}
                   data={selectedArtistSongs}
                   keyExtractor={(item, index) => `library-artist-song-${item.uri}-${String(index)}`}
                   renderItem={({item}) => (
@@ -944,7 +1018,7 @@ const YourLibraryTabScene = memo(function YourLibraryTabScene({
                       track={item}
                       isCurrent={currentTrackUri === item.uri}
                       isPlaying={isPlaying}
-                      onPlay={trackUri => onPlayTrackFromList(selectedArtistSongs, trackUri, `library:artist:${selectedArtistName}`)}
+                      onPlay={trackUri => onPlayTrackFromList(selectedArtistSongs, trackUri, artistLabel)}
                     />
                   )}
                   nestedScrollEnabled
@@ -958,15 +1032,17 @@ const YourLibraryTabScene = memo(function YourLibraryTabScene({
             <Text style={styles.meta}>No artists available yet.</Text>
           ) : (
             <FlashList
+              key={'library:artists'}
+              {...artistsScroll}
               data={artists}
-              keyExtractor={(item, index) => `library-artist-${item.artist}-${String(index)}`}
+              keyExtractor={item => `library-artist-${item.key}`}
               renderItem={({item}) => (
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => onSelectArtistName(item.artist)}
                   style={({pressed}) => [styles.trackRow, pressed ? styles.libraryPillPressed : null]}>
                   <Text style={styles.trackTitle} numberOfLines={1}>{item.artist}</Text>
-                  <Text style={styles.trackMeta} numberOfLines={1}>Albums: {item.albumCount} • Tracks: {item.trackCount}</Text>
+                  <Text style={styles.trackMeta} numberOfLines={1}>{`${albumCountLabel(item.albumCount)} • ${songCount(item.trackCount)}`}</Text>
                 </Pressable>
               )}
               nestedScrollEnabled
@@ -980,65 +1056,86 @@ const YourLibraryTabScene = memo(function YourLibraryTabScene({
 
       {libraryView === 'folders' && (
         <SectionCard
-          title={selectedFolderPath !== null ? 'Folder' : 'Folders'}
-          titleRight={selectedFolderPath !== null ? (
+          fill
+          title="Folders"
+          titleRight={canGoUpFolder ? (
             <Pressable
-              onPress={() => onSelectFolderPath(null)}
+              accessibilityRole="button"
+              testID="folder-up"
+              onPress={() => onSelectFolderPath(upFrom(folderTree, currentFolder.path))}
               style={({pressed}) => [styles.libraryHeaderBackButton, pressed ? styles.libraryPillPressed : null]}>
-              <Text style={styles.libraryHeaderBackButtonLabel}>← back</Text>
+              <Text style={styles.libraryHeaderBackButtonLabel}>↑ up</Text>
             </Pressable>
           ) : undefined}>
-          {selectedFolderPath !== null ? (
-            <>
-              <Text style={styles.librarySelectionName}>{selectedFolderPath}</Text>
-              {selectedFolderSongs.length === 0 ? (
-                <Text style={styles.meta}>No songs found for this folder.</Text>
-              ) : (
-                <FlashList
-                  data={selectedFolderSongs}
-                  keyExtractor={(item, index) => `library-folder-song-${item.uri}-${String(index)}`}
-                  renderItem={({item}) => (
-                    <CompactSongRow
-                      track={item}
-                      isCurrent={currentTrackUri === item.uri}
-                      isPlaying={isPlaying}
-                      onPlay={trackUri => onPlayTrackFromList(selectedFolderSongs, trackUri, `library:folder:${selectedFolderPath}`)}
-                    />
-                  )}
-                  nestedScrollEnabled
-                  showsVerticalScrollIndicator={false}
-                  style={styles.virtualizedListTall}
-                  contentContainerStyle={styles.virtualizedListContainer}
-                />
-              )}
-            </>
-          ) : folderGroups.length === 0 ? (
-            <Text style={styles.meta}>No folders available yet.</Text>
+          {currentFolder.total === 0 ? (
+            <Text style={styles.meta}>No folders available yet. Library sync will populate this automatically.</Text>
           ) : (
-            <FlashList
-              data={folderGroups}
-              keyExtractor={(item, index) => `library-folder-${item.path}-${String(index)}`}
-              renderItem={({item}) => (
+            <>
+              <Text style={styles.librarySelectionName} numberOfLines={2}>{breadcrumb(folderTree, currentFolder.path)}</Text>
+              <Text style={styles.meta}>
+                {`${currentFolder.total} song${currentFolder.total === 1 ? '' : 's'}`}
+                {currentFolder.children.length > 0
+                  ? ` • ${currentFolder.children.length} folder${currentFolder.children.length === 1 ? '' : 's'}`
+                  : ''}
+              </Text>
+              <View style={styles.libraryTopPillRow}>
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() => onSelectFolderPath(item.path)}
-                  style={({pressed}) => [styles.trackRow, pressed ? styles.libraryPillPressed : null]}>
-                  <Text style={styles.trackTitle} numberOfLines={1}>{deepestFolderName(item.path)}</Text>
-                  <Text style={styles.trackSubMeta} numberOfLines={1}>{item.path}</Text>
-                  <Text style={styles.trackMeta} numberOfLines={1}>{item.sampleArtist || 'Unknown artist'} • Tracks: {item.trackCount}</Text>
+                  testID="folder-play-all"
+                  onPress={() => onPlayTrackFromList(currentFolderSongs, currentFolderSongs[0].uri, folderLabel)}
+                  style={({pressed}) => [styles.libraryPill, styles.libraryPillActive, pressed ? styles.libraryPillPressed : null]}>
+                  <Text style={[styles.libraryPillLabel, styles.libraryPillLabelActive]}>▶ PLAY ALL</Text>
                 </Pressable>
-              )}
-              nestedScrollEnabled
-              showsVerticalScrollIndicator={false}
-              style={styles.virtualizedListTall}
-              contentContainerStyle={styles.virtualizedListContainer}
-            />
+                <Pressable
+                  accessibilityRole="button"
+                  testID="folder-shuffle"
+                  onPress={() => onShuffleTracks(currentFolderSongs, folderLabel)}
+                  style={({pressed}) => [styles.libraryPill, styles.libraryPillInactive, pressed ? styles.libraryPillPressed : null]}>
+                  <Text style={[styles.libraryPillLabel, styles.libraryPillLabelInactive]}>↭ SHUFFLE</Text>
+                </Pressable>
+              </View>
+              <FlashList
+                key={`library:folder:${currentFolder.path}`}
+                {...folderScroll}
+                data={folderRows}
+                getItemType={item => item.kind}
+                keyExtractor={item => (item.kind === 'folder' ? `folder:${item.node.path}` : `track:${item.track.uri}`)}
+                renderItem={({item}) =>
+                  item.kind === 'folder' ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => onSelectFolderPath(compactStart(item.node).path)}
+                      style={({pressed}) => [styles.trackRow, pressed ? styles.libraryPillPressed : null]}>
+                      <Text style={styles.trackTitle} numberOfLines={1}>▸ {item.node.name}</Text>
+                      <Text style={styles.trackMeta} numberOfLines={1}>
+                        {`${item.node.total} song${item.node.total === 1 ? '' : 's'}`}
+                        {item.node.children.length > 0
+                          ? ` • ${item.node.children.length} folder${item.node.children.length === 1 ? '' : 's'}`
+                          : ''}
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <CompactSongRow
+                      track={item.track}
+                      isCurrent={currentTrackUri === item.track.uri}
+                      isPlaying={isPlaying}
+                      onPlay={trackUri => onPlayTrackFromList(currentFolderSongs, trackUri, folderLabel)}
+                    />
+                  )
+                }
+                nestedScrollEnabled
+                showsVerticalScrollIndicator={false}
+                style={styles.virtualizedListTall}
+                contentContainerStyle={styles.virtualizedListContainer}
+              />
+            </>
           )}
         </SectionCard>
       )}
 
       {libraryView === 'playlists' && openPlaylistName !== null && (
         <SectionCard
+          fill
           title="Playlist"
           titleRight={
             <Pressable
@@ -1048,9 +1145,16 @@ const YourLibraryTabScene = memo(function YourLibraryTabScene({
             </Pressable>
           }>
           <Text style={styles.librarySelectionName}>{openPlaylistName}</Text>
-          <Text style={styles.meta}>
-            {isOpenPlaylistLoading ? 'Loading…' : `${openPlaylistSongs.length} song${openPlaylistSongs.length === 1 ? '' : 's'}`}
-          </Text>
+          {isOpenPlaylistLoading ? (
+            <View style={styles.inlineLoadingRow} testID="playlist-loading">
+              <ActivityIndicator size="small" color={loadingIndicatorColor} />
+              <Text style={styles.meta}>
+                {openPlaylistEntryCount > 0 ? `Loading ${openPlaylistEntryCount.toLocaleString()} songs…` : 'Loading…'}
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.meta}>{songCount(openPlaylistSongs.length)}</Text>
+          )}
           {openPlaylistSongs.length > 0 ? (
             <View style={styles.libraryTopPillRow}>
               <Pressable
@@ -1067,12 +1171,31 @@ const YourLibraryTabScene = memo(function YourLibraryTabScene({
                 style={({pressed}) => [styles.libraryPill, styles.libraryPillInactive, pressed ? styles.libraryPillPressed : null]}>
                 <Text style={[styles.libraryPillLabel, styles.libraryPillLabelInactive]}>↭ SHUFFLE</Text>
               </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                testID="playlist-delete"
+                onPress={onDeletePlaylist}
+                style={({pressed}) => [styles.libraryPill, styles.libraryPillInactive, pressed ? styles.libraryPillPressed : null]}>
+                <Text style={[styles.libraryPillLabel, styles.libraryPillLabelInactive]}>✕ DELETE</Text>
+              </Pressable>
+            </View>
+          ) : !isOpenPlaylistLoading ? (
+            <View style={styles.libraryTopPillRow}>
+              <Pressable
+                accessibilityRole="button"
+                testID="playlist-delete"
+                onPress={onDeletePlaylist}
+                style={({pressed}) => [styles.libraryPill, styles.libraryPillInactive, pressed ? styles.libraryPillPressed : null]}>
+                <Text style={[styles.libraryPillLabel, styles.libraryPillLabelInactive]}>✕ DELETE</Text>
+              </Pressable>
             </View>
           ) : null}
           {!isOpenPlaylistLoading && openPlaylistSongs.length === 0 ? (
             <Text style={styles.meta}>This playlist has no songs that are in the library.</Text>
           ) : (
             <FlashList
+              key={`library:playlist:${openPlaylistName ?? ''}`}
+              {...playlistSongsScroll}
               data={openPlaylistSongs}
               keyExtractor={(item, index) => `library-playlist-song-${item.uri}-${String(index)}`}
               renderItem={({item}) => (
@@ -1093,20 +1216,33 @@ const YourLibraryTabScene = memo(function YourLibraryTabScene({
       )}
 
       {libraryView === 'playlists' && openPlaylistName === null && (
-        <SectionCard title="Playlists">
+        <SectionCard
+          fill
+          title="Playlists"
+          titleRight={playlists.length > 1 ? (
+            <Pressable
+              accessibilityRole="button"
+              testID="playlist-sort"
+              onPress={() => setPlaylistSort(current => (current === 'name' ? 'recent' : 'name'))}
+              style={({pressed}) => [styles.libraryHeaderBackButton, pressed ? styles.libraryPillPressed : null]}>
+              <Text style={styles.libraryHeaderBackButtonLabel}>{playlistSort === 'name' ? 'A–Z' : 'RECENT'}</Text>
+            </Pressable>
+          ) : undefined}>
           {playlists.length === 0 ? (
             <Text style={styles.meta}>No playlists yet.</Text>
           ) : (
             <FlashList
-              data={playlists}
+              key={`library:playlists:${playlistSort}`}
+              {...playlistsScroll}
+              data={sortedPlaylists}
               keyExtractor={(item, index) => `library-playlist-${item.id}-${String(index)}`}
               renderItem={({item}) => (
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => onSelectPlaylist(item.id)}
                   style={({pressed}) => [styles.trackRow, pressed ? styles.libraryPillPressed : null]}>
-                  <Text style={styles.trackTitle} numberOfLines={1}>{item.name}</Text>
-                  <Text style={styles.trackMeta} numberOfLines={1}>Tracks: {item.entryCount}</Text>
+                  <Text style={styles.trackTitle} numberOfLines={1}>{isLikedSongs(item) ? `♥ ${item.name}` : item.name}</Text>
+                  <Text style={styles.trackMeta} numberOfLines={1}>{songCount(item.entryCount)}</Text>
                 </Pressable>
               )}
               nestedScrollEnabled
@@ -1138,17 +1274,63 @@ function TabPane({
   tab,
   activeTab,
   visitedTabs,
+  styles,
+  scrollable = true,
   children,
 }: {
   tab: string;
   activeTab: string;
   visitedTabs: ReadonlySet<string>;
+  styles: ProductionStyles;
+  /** False for tabs whose lists scroll themselves (the library). */
+  scrollable?: boolean;
   children: ReactNode;
 }) {
   if (!visitedTabs.has(tab)) {
     return null;
   }
-  return <Activity mode={tab === activeTab ? 'visible' : 'hidden'}>{children}</Activity>;
+  return (
+    <Activity mode={tab === activeTab ? 'visible' : 'hidden'}>
+      <TabScroll styles={styles} scrollable={scrollable}>{children}</TabScroll>
+    </Activity>
+  );
+}
+
+/**
+ * Each tab scrolls on its own, so switching tabs neither carries one tab's scroll position into
+ * another nor loses it: the offset is restored when the tab is shown again (<Activity> re-runs
+ * effects on show).
+ */
+function TabScroll({styles, scrollable, children}: {styles: ProductionStyles; scrollable: boolean; children: ReactNode}) {
+  const scrollRef = useRef<ScrollView>(null);
+  const offsetRef = useRef(0);
+  useEffect(() => {
+    if (offsetRef.current > 0) {
+      scrollRef.current?.scrollTo({y: offsetRef.current, animated: false});
+    }
+  }, []);
+  if (!scrollable) {
+    // A plain View, not a ScrollView with scrolling off: Android's ScrollView still takes "nested"
+    // scroll handed up by an inner list at the end of a fling, which slid the whole library away.
+    return (
+      <View style={[styles.content, styles.contentContainer, styles.contentContainerLibrary]}>
+        <View style={[styles.tabContent, styles.tabContentFill]}>{children}</View>
+      </View>
+    );
+  }
+  return (
+    <ScrollView
+      ref={scrollRef}
+      style={styles.content}
+      contentContainerStyle={styles.contentContainer}
+      nestedScrollEnabled
+      onScroll={event => {
+        offsetRef.current = event.nativeEvent.contentOffset.y;
+      }}
+      scrollEventThrottle={50}>
+      <View style={styles.tabContent}>{children}</View>
+    </ScrollView>
+  );
 }
 
 export function ProductionAppShell() {
@@ -1294,6 +1476,7 @@ export function ProductionAppShell() {
     selectPlaylist,
     searchTracks,
     addTrack,
+    deletePlaylist,
     entries: selectedPlaylistEntries,
   } = useUserPlaylists();
   // The playlist opened in LIBRARY -> PLAYLISTS (separate from the CREATE tab's "add to" target).
@@ -1478,7 +1661,7 @@ export function ProductionAppShell() {
 
   const sortedAllSongs = useMemo(() => {
     const rows = [...deferredSongs];
-    const byTitle = (left: MediaStoreTrack, right: MediaStoreTrack) => left.title.localeCompare(right.title);
+    const byTitle = (left: MediaStoreTrack, right: MediaStoreTrack) => compareText(left.title, right.title);
 
     if (allSongsSortMode === 'name') {
       return rows.sort(byTitle);
@@ -1486,14 +1669,14 @@ export function ProductionAppShell() {
 
     if (allSongsSortMode === 'album') {
       return rows.sort((left, right) => {
-        const albumCmp = left.album.localeCompare(right.album);
+        const albumCmp = compareText(left.album, right.album);
         return albumCmp !== 0 ? albumCmp : byTitle(left, right);
       });
     }
 
     if (allSongsSortMode === 'artist') {
       return rows.sort((left, right) => {
-        const artistCmp = left.artist.localeCompare(right.artist);
+        const artistCmp = compareText(left.artist, right.artist);
         return artistCmp !== 0 ? artistCmp : byTitle(left, right);
       });
     }
@@ -1522,7 +1705,7 @@ export function ProductionAppShell() {
     const rows = [...deferredSongs];
     rows.sort((left, right) => {
       const scoreCmp = pseudoPopularityScore(right) - pseudoPopularityScore(left);
-      return scoreCmp !== 0 ? scoreCmp : left.title.localeCompare(right.title);
+      return scoreCmp !== 0 ? scoreCmp : compareText(left.title, right.title);
     });
     return rows;
   }, [deferredSongs]);
@@ -1531,7 +1714,7 @@ export function ProductionAppShell() {
     const rows = [...deferredSongs];
     rows.sort((left, right) => {
       const modifiedCmp = right.dateModifiedEpochSeconds - left.dateModifiedEpochSeconds;
-      return modifiedCmp !== 0 ? modifiedCmp : left.title.localeCompare(right.title);
+      return modifiedCmp !== 0 ? modifiedCmp : compareText(left.title, right.title);
     });
     return rows;
   }, [deferredSongs]);
@@ -1576,22 +1759,59 @@ export function ProductionAppShell() {
   }, [selectPlaylist]);
 
   const handleClosePlaylist = useCallback(() => setOpenPlaylistId(null), []);
+  const likedSongsPlaylist = useMemo(() => playlists.find(isLikedSongs) ?? null, [playlists]);
+  const handleOpenLikedSongs = useCallback(() => {
+    if (!likedSongsPlaylist) {
+      return;
+    }
+    setActiveTab('yourLibrary');
+    setLibraryView('playlists');
+    setOpenPlaylistId(likedSongsPlaylist.id);
+    void selectPlaylist(likedSongsPlaylist.id);
+  }, [likedSongsPlaylist, selectPlaylist]);
+  const handleDeleteOpenPlaylist = useCallback(() => {
+    if (openPlaylistId === null) {
+      return;
+    }
+    const playlistId = openPlaylistId;
+    const name = playlists.find(item => item.id === playlistId)?.name ?? 'this playlist';
+    Alert.alert(`Delete "${name}"?`, 'The playlist is removed; its songs stay in your library.', [
+      {text: 'Cancel', style: 'cancel'},
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          void deletePlaylist(playlistId).then(deleted => {
+            if (deleted) {
+              setOpenPlaylistId(null);
+            }
+          });
+        },
+      },
+    ]);
+  }, [deletePlaylist, openPlaylistId, playlists]);
 
   const handlePlayTrackFromList = useCallback((trackList: MediaStoreTrack[], trackUri: string, sourceLabel: string) => {
     void playTrackFromList(trackList, trackUri, sourceLabel);
   }, [playTrackFromList]);
 
-  const openPlaylistName = openPlaylist?.name ?? '';
-  const handleShufflePlaylist = useCallback(() => {
-    if (openPlaylistSongs.length === 0) {
+  /** Shuffle on, then start from a random track of `tracks`. */
+  const handleShuffleTracks = useCallback((list: MediaStoreTrack[], sourceLabel: string) => {
+    if (list.length === 0) {
       return;
     }
-    const start = openPlaylistSongs[Math.floor(Math.random() * openPlaylistSongs.length)];
+    const start = list[Math.floor(Math.random() * list.length)];
     void (async () => {
       await playbackControl?.setShuffle(true).catch(() => false);
-      await playTrackFromList(openPlaylistSongs, start.uri, `playlist:${openPlaylistName}`);
+      await playTrackFromList(list, start.uri, sourceLabel);
     })();
-  }, [openPlaylistSongs, openPlaylistName, playTrackFromList]);
+  }, [playTrackFromList]);
+
+  const openPlaylistName = openPlaylist?.name ?? '';
+  const handleShufflePlaylist = useCallback(
+    () => handleShuffleTracks(openPlaylistSongs, `playlist:${openPlaylistName}`),
+    [handleShuffleTracks, openPlaylistSongs, openPlaylistName],
+  );
 
   const handleCreatePlaylistFromCreatePagePress = useCallback(() => {
     void handleCreatePlaylistFromCreatePage();
@@ -1613,56 +1833,28 @@ export function ProductionAppShell() {
     void handleAddToNewPlaylistFromCreate(track);
   }, [handleAddToNewPlaylistFromCreate]);
 
-  const selectedAlbumSongs = useMemo(() => {
-    if (!selectedAlbumName) {
-      return [];
+  const libraryAlbums = useMemo(() => groupAlbums(deferredSongs, compareTracksByTrackThenTitle), [deferredSongs]);
+  const libraryArtists = useMemo(() => groupArtists(deferredSongs, compareTracksByTrackThenTitle), [deferredSongs]);
+  const selectedAlbum = useMemo(() => {
+    if (selectedAlbumName === null) {
+      return null;
     }
-
-    return deferredSongs
-      .filter(track => track.album === selectedAlbumName)
-      .sort(compareTracksByTrackThenTitle);
-  }, [deferredSongs, selectedAlbumName]);
-
-  const selectedArtistSongs = useMemo(() => {
-    if (!selectedArtistName) {
-      return [];
+    const key = albumKey(selectedAlbumName);
+    return libraryAlbums.find(album => album.key === key) ?? null;
+  }, [libraryAlbums, selectedAlbumName]);
+  const selectedArtist = useMemo(() => {
+    if (selectedArtistName === null) {
+      return null;
     }
+    const key = artistKey(selectedArtistName);
+    return libraryArtists.find(artist => artist.key === key) ?? null;
+  }, [libraryArtists, selectedArtistName]);
 
-    return deferredSongs.filter(track => track.artist === selectedArtistName);
-  }, [deferredSongs, selectedArtistName]);
-
-  const folderGroups = useMemo(() => {
-    const grouped = new Map<string, {path: string; trackCount: number; sampleArtist: string}>();
-
-    deferredSongs.forEach(track => {
-      const path = (track.relativePath && track.relativePath.trim()) || 'Unknown folder';
-      const existing = grouped.get(path);
-      if (existing) {
-        existing.trackCount += 1;
-        if (!existing.sampleArtist.trim() && track.artist.trim()) {
-          existing.sampleArtist = track.artist;
-        }
-      } else {
-        grouped.set(path, {
-          path,
-          trackCount: 1,
-          sampleArtist: track.artist,
-        });
-      }
-    });
-
-    return Array.from(grouped.values()).sort((left, right) => left.path.localeCompare(right.path));
-  }, [deferredSongs]);
-
-  const selectedFolderSongs = useMemo(() => {
-    if (!selectedFolderPath) {
-      return [];
-    }
-
-    return deferredSongs
-      .filter(track => ((track.relativePath && track.relativePath.trim()) || 'Unknown folder') === selectedFolderPath)
-      .sort(compareTracksByTrackThenTitle);
-  }, [deferredSongs, selectedFolderPath]);
+  const folderTree = useMemo(
+    () => buildFolderTree(deferredSongs, compareTracksByTrackThenTitle),
+    [deferredSongs],
+  );
+  const songFolderCount = useMemo(() => countSongFolders(folderTree), [folderTree]);
 
   const containerStyle = useMemo(
     () => ({
@@ -1850,9 +2042,9 @@ export function ProductionAppShell() {
 
     const task = runWhenIdle(() => {
       void Promise.all([
-        browseSongs(100, {force: true}),
-        browseAlbums(50, {force: true}),
-        browseArtists(50, {force: true}),
+        browseSongs(FULL_LIBRARY_LIMIT, {force: true}),
+        browseAlbums(FULL_LIBRARY_LIMIT, {force: true}),
+        browseArtists(FULL_LIBRARY_LIMIT, {force: true}),
         refreshStats(),
       ]).catch(() => {
       });
@@ -2254,19 +2446,15 @@ export function ProductionAppShell() {
 
   return (
     <View style={[styles.root, containerStyle]}>
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={[styles.contentContainer, activeTab === 'yourLibrary' ? styles.contentContainerLibrary : null]}
-        nestedScrollEnabled={activeTab !== 'yourLibrary'}
-        showsVerticalScrollIndicator={activeTab !== 'yourLibrary'}
-        scrollEnabled={activeTab !== 'yourLibrary'}>
-        <Animated.View style={[styles.tabContent, {opacity: contentFade}]}>
-        <TabPane tab="home" activeTab={activeTab} visitedTabs={visitedTabs}>
+      <Animated.View style={[styles.content, {opacity: contentFade}]}>
+        <TabPane tab="home" activeTab={activeTab} visitedTabs={visitedTabs} styles={styles}>
           <HomeTabScene
             styles={styles}
+            likedSongs={likedSongsPlaylist}
+            onOpenLikedSongs={handleOpenLikedSongs}
             loadingIndicatorColor={themeColors.accentPrimary}
             totalTracks={indexStats.totalTracks}
-            folderCount={folderGroups.length}
+            folderCount={songFolderCount}
             lastAutoSyncAt={lastAutoSyncAt}
             autoSyncTone={autoSyncTone}
             homeFeedTab={homeFeedTab}
@@ -2286,7 +2474,7 @@ export function ProductionAppShell() {
           />
         </TabPane>
 
-        <TabPane tab="search" activeTab={activeTab} visitedTabs={visitedTabs}>
+        <TabPane tab="search" activeTab={activeTab} visitedTabs={visitedTabs} styles={styles}>
           <SearchTabScene
             browseStatus={browseStatus}
             browseSearchResults={browseSearchResults}
@@ -2308,7 +2496,7 @@ export function ProductionAppShell() {
           />
         </TabPane>
 
-        <TabPane tab="yourLibrary" activeTab={activeTab} visitedTabs={visitedTabs}>
+        <TabPane tab="yourLibrary" activeTab={activeTab} visitedTabs={visitedTabs} styles={styles} scrollable={false}>
           <YourLibraryTabScene
             styles={styles}
             loadingIndicatorColor={themeColors.accentPrimary}
@@ -2326,27 +2514,29 @@ export function ProductionAppShell() {
             onPlayTrackFromList={handlePlayTrackFromList}
             selectedAlbumName={selectedAlbumName}
             onSelectAlbumName={setSelectedAlbumName}
-            selectedAlbumSongs={selectedAlbumSongs}
-            albums={albums}
+            selectedAlbum={selectedAlbum}
+            albums={libraryAlbums}
             selectedArtistName={selectedArtistName}
             onSelectArtistName={setSelectedArtistName}
-            selectedArtistSongs={selectedArtistSongs}
-            artists={artists}
+            selectedArtist={selectedArtist}
+            artists={libraryArtists}
             selectedFolderPath={selectedFolderPath}
             onSelectFolderPath={setSelectedFolderPath}
-            selectedFolderSongs={selectedFolderSongs}
-            folderGroups={folderGroups}
+            folderTree={folderTree}
+            onShuffleTracks={handleShuffleTracks}
             playlists={playlists}
             onSelectPlaylist={handleSelectPlaylistFromLibrary}
             openPlaylistName={openPlaylist?.name ?? null}
             openPlaylistSongs={openPlaylistSongs}
             isOpenPlaylistLoading={isOpenPlaylistLoading}
+            openPlaylistEntryCount={openPlaylist?.entryCount ?? 0}
             onClosePlaylist={handleClosePlaylist}
+            onDeletePlaylist={handleDeleteOpenPlaylist}
             onShufflePlaylist={handleShufflePlaylist}
           />
         </TabPane>
 
-        <TabPane tab="create" activeTab={activeTab} visitedTabs={visitedTabs}>
+        <TabPane tab="create" activeTab={activeTab} visitedTabs={visitedTabs} styles={styles}>
           <CreateTabScene
             styles={styles}
             playlistsCount={playlists.length}
@@ -2368,7 +2558,7 @@ export function ProductionAppShell() {
           />
         </TabPane>
 
-        <TabPane tab="nowplaying" activeTab={activeTab} visitedTabs={visitedTabs}>
+        <TabPane tab="nowplaying" activeTab={activeTab} visitedTabs={visitedTabs} styles={styles}>
           <>
             <LivePosition clock={playbackClock}>
               {positionMs => (
@@ -2422,9 +2612,8 @@ export function ProductionAppShell() {
           </>
         </TabPane>
 
-        <TabPane tab="settings" activeTab={activeTab} visitedTabs={visitedTabs}>{settingsScene}</TabPane>
-        </Animated.View>
-      </ScrollView>
+        <TabPane tab="settings" activeTab={activeTab} visitedTabs={visitedTabs} styles={styles}>{settingsScene}</TabPane>
+      </Animated.View>
 
       <LivePosition clock={playbackClock}>
         {positionMs => (
@@ -2474,6 +2663,14 @@ function createStyles(colors: ThemeColors, fontFamily: string) {
     tabContent: {
       gap: spacing.sm,
     },
+    tabContentFill: {
+      flex: 1,
+    },
+    inlineLoadingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
     quickStartCard: {
       borderWidth: 1,
       borderColor: colors.accentPrimary,
@@ -2486,6 +2683,31 @@ function createStyles(colors: ThemeColors, fontFamily: string) {
       flexDirection: 'row',
       gap: spacing.sm,
       flexWrap: 'wrap',
+    },
+    likedSongsTile: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.accentPrimary,
+      borderRadius: radii.lg,
+      backgroundColor: colors.backgroundCard,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+    },
+    likedSongsTileIcon: {
+      fontSize: 26,
+      color: colors.accentPrimary,
+      fontFamily,
+    },
+    likedSongsTileText: {
+      flex: 1,
+      gap: 2,
+    },
+    likedSongsTileChevron: {
+      fontSize: 26,
+      color: colors.accentPrimary,
+      fontFamily,
     },
     homeStatusStrip: {
       borderWidth: 1,
@@ -2572,14 +2794,18 @@ function createStyles(colors: ThemeColors, fontFamily: string) {
     },
     libraryTopPillScroll: {
       width: '100%',
+      flexGrow: 0,
+      flexShrink: 0,
     },
     libraryScene: {
       position: 'relative',
       gap: spacing.sm,
+      flex: 1,
     },
     librarySceneContent: {
       position: 'relative',
       gap: spacing.sm,
+      flex: 1,
       marginHorizontal: -spacing.md / 2,
     },
     libraryLoadingOverlay: {
@@ -2796,9 +3022,10 @@ function createStyles(colors: ThemeColors, fontFamily: string) {
     trackActionWrap: {
       marginTop: 2,
     },
+    // Library lists fill their card down to the mini player (the card and scene are flex columns).
     virtualizedListTall: {
-      minHeight: 240,
-      maxHeight: 560,
+      flex: 1,
+      minHeight: 160,
       width: '100%',
       marginHorizontal: -spacing.md / 2,
     },

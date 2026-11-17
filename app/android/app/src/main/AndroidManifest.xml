@@ -49,5 +49,14 @@
           <action android:name="android.intent.action.MEDIA_BUTTON" />
         </intent-filter>
       </receiver>
+      <!-- JS profiling on the device; only adb (holder of DUMP) can trigger it. See ProfilerReceiver.kt. -->
+      <receiver
+        android:name=".ProfilerReceiver"
+        android:exported="true"
+        android:permission="android.permission.DUMP">
+        <intent-filter>
+          <action android:name="com.thoraplayer.PROFILE" />
+        </intent-filter>
+      </receiver>
     </application>
 </manifest>

@@ -9,11 +9,20 @@ import {
   UserPlaylist,
   mediaLibrary,
 } from '../../native/modules';
+import {sameTrackList} from './sortKeys';
 import {useStableCallback} from '../../platform/hooks/useStableCallback';
 
 const MAX_QUERY_LENGTH = 256;
-const MAX_SEARCH_LIMIT = 100;
-const MAX_BROWSE_LIMIT = 500;
+// Search used to return 30 songs (100 at most), so broad searches looked like a library cap.
+export const SEARCH_RESULT_LIMIT = 500;
+const MAX_SEARCH_LIMIT = 2_000;
+/**
+ * The library views (All Songs, Folders, Albums, Artists, the Search folder browser) are built
+ * from these lists, so they must hold the whole index: a 100-song sample made folders show one
+ * track and whole folders (e.g. Liked Songs) disappear on a ~5,000-song library.
+ */
+export const FULL_LIBRARY_LIMIT = 50_000;
+const MAX_BROWSE_LIMIT = FULL_LIBRARY_LIMIT;
 const SEARCH_CACHE_TTL_MS = 20_000;
 const BROWSE_CACHE_TTL_MS = 60_000;
 
@@ -78,7 +87,7 @@ export function useSearchBrowse() {
     songs: null,
   });
 
-  const search = useStableCallback(async (query: string, scope: UnifiedSearchScope = 'all', limit = 30) => {
+  const search = useStableCallback(async (query: string, scope: UnifiedSearchScope = 'all', limit = SEARCH_RESULT_LIMIT) => {
     if (!mediaLibrary) {
       setStatus('MediaLibrary module unavailable');
       return;
@@ -159,7 +168,7 @@ export function useSearchBrowse() {
     }
   });
 
-  const browseAlbums = useStableCallback(async (limit = 50, options?: {force?: boolean}) => {
+  const browseAlbums = useStableCallback(async (limit = FULL_LIBRARY_LIMIT, options?: {force?: boolean}) => {
     if (!mediaLibrary) {
       setStatus('MediaLibrary module unavailable');
       return;
@@ -198,7 +207,7 @@ export function useSearchBrowse() {
     }
   });
 
-  const browseArtists = useStableCallback(async (limit = 50, options?: {force?: boolean}) => {
+  const browseArtists = useStableCallback(async (limit = FULL_LIBRARY_LIMIT, options?: {force?: boolean}) => {
     if (!mediaLibrary) {
       setStatus('MediaLibrary module unavailable');
       return;
@@ -237,7 +246,7 @@ export function useSearchBrowse() {
     }
   });
 
-  const browseSongs = useStableCallback(async (limit = 100, options?: {force?: boolean}) => {
+  const browseSongs = useStableCallback(async (limit = FULL_LIBRARY_LIMIT, options?: {force?: boolean}) => {
     if (!mediaLibrary) {
       setStatus('MediaLibrary module unavailable');
       return;
@@ -262,7 +271,11 @@ export function useSearchBrowse() {
       setStatus('Loading songs...');
       const request = mediaLibrary.browseIndexedSongs(clampLimit(limit, MAX_BROWSE_LIMIT));
       inFlightBrowseRef.current.songs = request;
-      const rows = await request;
+      const fetched = await request;
+      // A refresh that changed nothing keeps the old array, so nothing derived from it is rebuilt
+      // (re-sorting 5,000+ songs after every start/resume sync used to stall scrolling).
+      const previous = songsCacheRef.current?.rows;
+      const rows = previous && sameTrackList(previous, fetched) ? previous : fetched;
       songsCacheRef.current = {
         rows,
         atMs: Date.now(),

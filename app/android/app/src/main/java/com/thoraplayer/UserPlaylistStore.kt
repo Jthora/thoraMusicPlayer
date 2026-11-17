@@ -289,6 +289,21 @@ class UserPlaylistStore(context: Context) :
         return getPlaylistEntries(playlistId)
     }
 
+    /** Deletes the playlist and its entries (the songs stay in the library); returns the remaining playlists. */
+    fun deletePlaylist(playlistId: Long): WritableArray {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            requirePlaylistExists(db, playlistId)
+            db.delete(TABLE_ENTRIES, "playlist_id = ?", arrayOf(playlistId.toString()))
+            db.delete(TABLE_PLAYLISTS, "id = ?", arrayOf(playlistId.toString()))
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        return listPlaylists()
+    }
+
     fun removeTrack(playlistId: Long, position: Int): WritableArray {
         val db = writableDatabase
         db.beginTransaction()
